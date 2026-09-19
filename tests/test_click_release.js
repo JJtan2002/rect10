@@ -172,28 +172,17 @@ async function runTest() {
     });
     if (!tutOpen.result.value) throw new Error("FAIL: Tutorial modal did not open!");
 
-    // Next slide -> 2
+    // Next slide -> 2 (Final slide)
     await send('Runtime.evaluate', {
       expression: `document.getElementById('tutorialNextBtn').click()`,
       returnByValue: true
     });
-    const tutSlide = await send('Runtime.evaluate', {
-      expression: `window.game.currentTutorialSlide`,
-      returnByValue: true
-    });
-    if (tutSlide.result.value !== 2) throw new Error("FAIL: Tutorial did not advance to slide 2!");
-
-    // Next slide -> 3 (Final slide)
-    await send('Runtime.evaluate', {
-      expression: `document.getElementById('tutorialNextBtn').click()`,
-      returnByValue: true
-    });
-    const tutSlide3 = await send('Runtime.evaluate', {
+    const tutSlide2 = await send('Runtime.evaluate', {
       expression: `({ slide: window.game.currentTutorialSlide, doneVisible: document.getElementById('tutorialDoneBtn').style.display !== 'none' })`,
       returnByValue: true
     });
-    if (tutSlide3.result.value.slide !== 3 || !tutSlide3.result.value.doneVisible) {
-      throw new Error("FAIL: Tutorial slide 3 did not show Done button!");
+    if (tutSlide2.result.value.slide !== 2 || !tutSlide2.result.value.doneVisible) {
+      throw new Error("FAIL: Tutorial slide 2 did not show Done button!");
     }
 
     // Close tutorial via Done button
@@ -206,7 +195,27 @@ async function runTest() {
       returnByValue: true
     });
     if (tutClosed.result.value) throw new Error("FAIL: Tutorial modal failed to close on Done!");
-    console.log("✅ Tutorial carousel opened, navigated through all 3 slides, and closed via Done button cleanly");
+    console.log("✅ Tutorial carousel opened, navigated through 2 slides, and closed via Done button cleanly");
+
+    // 2b. Test Missions Modal
+    console.log("Testing Missions modal...");
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('openMissionsBtn').click()`,
+      returnByValue: true
+    });
+    const missionsOpen = await send('Runtime.evaluate', {
+      expression: `({
+        active: document.getElementById('missionsModal').classList.contains('active'),
+        scoreText: document.getElementById('careerScoreDisplay').textContent
+      })`,
+      returnByValue: true
+    });
+    if (!missionsOpen.result.value.active) throw new Error("FAIL: Missions modal did not open!");
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('closeMissionsActionBtn').click()`,
+      returnByValue: true
+    });
+    console.log("✅ Missions modal opened, verified, and closed cleanly");
 
     // 3. Launch Game into Active Board
     console.log("Launching game from landing screen...");
@@ -407,6 +416,39 @@ async function runTest() {
     } else {
       throw new Error("FAIL: Leaderboard modal remained open after popstate!");
     }
+
+    // Resume game after modal close so skills can be triggered
+    await send('Runtime.evaluate', {
+      expression: `window.game.resumeGame()`,
+      returnByValue: true
+    });
+
+    // 6b. Test Tactical Skills Activation (Clairvoyance)
+    console.log("Testing Tactical Skills activation...");
+    await send('Runtime.evaluate', {
+      expression: `(() => {
+        window.game.missions.addCareerScore(100000);
+        window.game.updateSkillsUI();
+      })()`,
+      returnByValue: true
+    });
+    const clairReady = await send('Runtime.evaluate', {
+      expression: `document.getElementById('skillClairvoyanceBtn').classList.contains('ready')`,
+      returnByValue: true
+    });
+    if (!clairReady.result.value) throw new Error("FAIL: Clairvoyance skill button did not become ready after 100k points!");
+    
+    // Trigger Clairvoyance
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('skillClairvoyanceBtn').click()`,
+      returnByValue: true
+    });
+    const hintActive = await send('Runtime.evaluate', {
+      expression: `window.game.view.hintBox !== null && document.getElementById('skillClairvoyanceBtn').classList.contains('used')`,
+      returnByValue: true
+    });
+    if (!hintActive.result.value) throw new Error("FAIL: Clairvoyance hint was not activated on canvas!");
+    console.log("✅ Tactical Skill Clairvoyance successfully activated and highlighted hint on Canvas!");
 
     // 7. Test Return to Main Menu via Home Button
     console.log("Testing Home button return to Landing Page...");

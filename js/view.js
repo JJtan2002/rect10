@@ -37,6 +37,7 @@ class Rect10View {
     // Active particle and transition animations
     this.floatingTexts = [];
     this.dissolvingTiles = [];
+    this.hintBox = null;
 
     this.initResizeObserver();
   }
@@ -133,6 +134,18 @@ class Rect10View {
       startTime: performance.now(),
       duration: 650
     });
+  }
+
+  setHint(r1, c1, r2, c2, durationMs = 3500) {
+    this.hintBox = {
+      r1, c1, r2, c2,
+      startTime: performance.now(),
+      duration: durationMs
+    };
+  }
+
+  clearHint() {
+    this.hintBox = null;
   }
 
   render(engine, dragState) {
@@ -238,6 +251,36 @@ class Rect10View {
       ctx.strokeStyle = '#38bdf8';
       this.drawRoundedRect(ctx, selX, selY, selW, selH, cornerRadius * 1.4);
       ctx.stroke();
+    }
+
+    // 3b. Render Hint Box (Clairvoyance)
+    if (this.hintBox) {
+      const elapsed = now - this.hintBox.startTime;
+      if (elapsed >= this.hintBox.duration) {
+        this.hintBox = null;
+      } else {
+        const hTop = Math.min(this.hintBox.r1, this.hintBox.r2);
+        const hBottom = Math.max(this.hintBox.r1, this.hintBox.r2);
+        const hLeft = Math.min(this.hintBox.c1, this.hintBox.c2);
+        const hRight = Math.max(this.hintBox.c1, this.hintBox.c2);
+
+        const hX = offX + padding + hLeft * cellSize;
+        const hY = offY + padding + hTop * cellSize;
+        const hW = (hRight - hLeft + 1) * cellSize;
+        const hH = (hBottom - hTop + 1) * cellSize;
+
+        const pulse = 0.65 + 0.35 * Math.sin((now / 160) * Math.PI);
+        ctx.save();
+        ctx.strokeStyle = `rgba(250, 204, 21, ${pulse})`;
+        ctx.lineWidth = 3.5;
+        ctx.setLineDash([8, 6]);
+        ctx.lineDashOffset = -(now / 22) % 14;
+        ctx.fillStyle = `rgba(250, 204, 21, ${0.14 * pulse})`;
+        this.drawRoundedRect(ctx, hX + 2, hY + 2, hW - 4, hH - 4, cornerRadius * 1.2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
     }
 
     // 4. Render Floating Score Particles

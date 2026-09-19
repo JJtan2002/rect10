@@ -304,6 +304,68 @@ class Rect10Engine {
     if (r < 0 || r >= this.ROWS || c < 0 || c >= this.COLS) return 0;
     return this.grid[r * this.COLS + c];
   }
+
+  getHintMove() {
+    const moves = this.findAllValidMoves(1);
+    return moves.length > 0 ? moves[0] : null;
+  }
+
+  applyGravity() {
+    const ROWS = this.ROWS;
+    const COLS = this.COLS;
+    const G = this.grid;
+    let changed = false;
+
+    for (let c = 0; c < COLS; c++) {
+      let writeRow = ROWS - 1;
+      for (let r = ROWS - 1; r >= 0; r--) {
+        const val = G[r * COLS + c];
+        if (val > 0) {
+          if (r !== writeRow) {
+            G[writeRow * COLS + c] = val;
+            G[r * COLS + c] = 0;
+            changed = true;
+          }
+          writeRow--;
+        }
+      }
+    }
+
+    this.buildPrefixSums();
+    this.movesRemaining = this.countValidMoves();
+    return {
+      changed,
+      movesRemaining: this.movesRemaining,
+      isDeadlocked: this.movesRemaining === 0
+    };
+  }
+
+  applyReset() {
+    const CELL_COUNT = this.CELL_COUNT;
+    const G = this.grid;
+    let activeCells = 0;
+    for (let i = 0; i < CELL_COUNT; i++) {
+      if (G[i] > 0) activeCells++;
+    }
+
+    let attempts = 0;
+    do {
+      attempts++;
+      for (let i = 0; i < CELL_COUNT; i++) {
+        if (G[i] > 0) {
+          G[i] = this.sampleWeightedDigit();
+        }
+      }
+      this.buildPrefixSums();
+      this.movesRemaining = this.countValidMoves();
+    } while (this.movesRemaining === 0 && attempts < 50);
+
+    return {
+      activeCells,
+      movesRemaining: this.movesRemaining,
+      isDeadlocked: this.movesRemaining === 0
+    };
+  }
 }
 
 if (typeof module !== 'undefined' && module.exports) {

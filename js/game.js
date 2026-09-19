@@ -31,6 +31,8 @@ class Rect10Game {
     this.audio = new Rect10Audio();
     this.leaderboard = new Rect10Leaderboard();
     this.haptics = new Rect10Haptics();
+    this.missions = new Rect10Missions();
+    this.skillsUsed = { clairvoyance: false, gravity: false, reset: false };
 
     // DOM Elements - Screens
     this.landingScreen = document.getElementById('landingScreen');
@@ -45,6 +47,7 @@ class Rect10Game {
     this.sizeLargeBtn = document.getElementById('sizeLargeBtn');
     this.startGameBtn = document.getElementById('startGameBtn');
     this.openTutorialBtn = document.getElementById('openTutorialBtn');
+    this.openMissionsBtn = document.getElementById('openMissionsBtn');
     this.openLeaderboardMenuBtn = document.getElementById('openLeaderboardMenuBtn');
     this.landingMuteBtn = document.getElementById('landingMuteBtn');
     this.landingHapticBtn = document.getElementById('landingHapticBtn');
@@ -65,6 +68,21 @@ class Rect10Game {
     this.restartBtn = document.getElementById('restartBtn');
     this.leaderboardBtn = document.getElementById('leaderboardBtn');
     this.hapticBtn = document.getElementById('hapticBtn');
+
+    // DOM Elements - Tactical Skills Dock
+    this.skillClairvoyanceBtn = document.getElementById('skillClairvoyanceBtn');
+    this.skillGravityBtn = document.getElementById('skillGravityBtn');
+    this.skillResetBtn = document.getElementById('skillResetBtn');
+    this.skillBadgeClairvoyance = document.getElementById('skillBadgeClairvoyance');
+    this.skillBadgeGravity = document.getElementById('skillBadgeGravity');
+    this.skillBadgeReset = document.getElementById('skillBadgeReset');
+
+    // DOM Elements - Missions Modal
+    this.missionsModal = document.getElementById('missionsModal');
+    this.closeMissionsBtn = document.getElementById('closeMissionsBtn');
+    this.closeMissionsActionBtn = document.getElementById('closeMissionsActionBtn');
+    this.careerScoreDisplay = document.getElementById('careerScoreDisplay');
+    this.missionsList = document.getElementById('missionsList');
 
     // DOM Elements - Tutorial Modal
     this.tutorialModal = document.getElementById('tutorialModal');
@@ -243,7 +261,12 @@ class Rect10Game {
     this.gameOverModal.classList.remove('active');
     this.pauseModal.classList.remove('active');
     this.leaderboardModal.classList.remove('active');
+    this.missionsModal.classList.remove('active');
     this.pauseCurtain.classList.remove('active');
+
+    this.skillsUsed = { clairvoyance: false, gravity: false, reset: false };
+    this.view.clearHint();
+    this.updateSkillsUI();
 
     this.allTimeBestBadge.classList.remove('active');
     this.weeklyBestBadge.classList.remove('active');
@@ -287,7 +310,7 @@ class Rect10Game {
   }
 
   setTutorialSlide(slideIndex) {
-    this.currentTutorialSlide = Math.max(1, Math.min(3, slideIndex));
+    this.currentTutorialSlide = Math.max(1, Math.min(2, slideIndex));
     this.tutorialSlides.forEach((slide) => {
       const idx = parseInt(slide.getAttribute('data-slide'), 10);
       slide.classList.toggle('active', idx === this.currentTutorialSlide);
@@ -301,14 +324,132 @@ class Rect10Game {
       this.tutorialPrevBtn.style.display = 'none';
       this.tutorialNextBtn.style.display = 'block';
       this.tutorialDoneBtn.style.display = 'none';
-    } else if (this.currentTutorialSlide === 3) {
+    } else {
       this.tutorialPrevBtn.style.display = 'block';
       this.tutorialNextBtn.style.display = 'none';
       this.tutorialDoneBtn.style.display = 'block';
-    } else {
-      this.tutorialPrevBtn.style.display = 'block';
-      this.tutorialNextBtn.style.display = 'block';
-      this.tutorialDoneBtn.style.display = 'none';
+    }
+  }
+
+  // --- Missions Modal ---
+  openMissions() {
+    this.haptics.buttonTap();
+    this.audio.playButtonTick();
+
+    const wasPlaying = this.isPlaying && !this.isPaused;
+    if (wasPlaying) {
+      this.pauseGame();
+    }
+
+    const careerScore = this.missions.getCareerScore();
+    this.careerScoreDisplay.textContent = `${Rect10Game.formatScore(careerScore)} PTS`;
+
+    const skills = this.missions.getSkillsProgress();
+    this.missionsList.innerHTML = skills.map((skill) => {
+      const statusBadge = skill.isUnlocked
+        ? `<span class="mission-status-badge unlocked">Unlocked</span>`
+        : `<span class="mission-status-badge locked">${Rect10Game.formatScore(skill.requiredScore)} PTS</span>`;
+
+      return `
+        <div class="mission-card ${skill.isUnlocked ? 'unlocked' : ''}">
+          <div class="mission-card-header">
+            <div class="mission-title-group">
+              <span class="mission-icon">${skill.icon}</span>
+              <span class="mission-name">${skill.name}</span>
+            </div>
+            ${statusBadge}
+          </div>
+          <div class="mission-desc">${skill.description}</div>
+          <div class="mission-progress-bar-track">
+            <div class="mission-progress-bar-fill" style="width: ${skill.pct}%;"></div>
+          </div>
+          <div class="mission-progress-meta">
+            <span>${Rect10Game.formatScore(Math.min(skill.currentScore, skill.requiredScore))} / ${Rect10Game.formatScore(skill.requiredScore)}</span>
+            <span>${skill.pct}%</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    this.missionsModal.classList.add('active');
+    history.pushState({ modal: 'missions' }, '');
+  }
+
+  closeMissions() {
+    this.missionsModal.classList.remove('active');
+  }
+
+  // --- Tactical Skills System ---
+  updateSkillsUI() {
+    const skills = [
+      { id: 'clairvoyance', btn: this.skillClairvoyanceBtn, badge: this.skillBadgeClairvoyance },
+      { id: 'gravity', btn: this.skillGravityBtn, badge: this.skillBadgeGravity },
+      { id: 'reset', btn: this.skillResetBtn, badge: this.skillBadgeReset }
+    ];
+
+    skills.forEach(({ id, btn, badge }) => {
+      const isUnlocked = this.missions.isUnlocked(id);
+      const isUsed = this.skillsUsed[id];
+
+      btn.classList.remove('ready', 'locked', 'used');
+
+      if (!isUnlocked) {
+        btn.classList.add('locked');
+        badge.textContent = '🔒';
+        btn.title = `Unlocks at ${Rect10Game.formatScore(SKILL_DEFINITIONS[id].requiredScore)} pts in Missions`;
+      } else if (isUsed) {
+        btn.classList.add('used');
+        badge.textContent = '0/1';
+        btn.title = 'Already used this round';
+      } else {
+        btn.classList.add('ready');
+        badge.textContent = '1/1';
+        btn.title = `Ready: ${SKILL_DEFINITIONS[id].name}`;
+      }
+    });
+  }
+
+  useSkill(skillId) {
+    if (!this.isPlaying || this.isPaused) return;
+    if (!this.missions.isUnlocked(skillId)) {
+      this.openMissions();
+      return;
+    }
+    if (this.skillsUsed[skillId]) return;
+
+    if (skillId === 'clairvoyance') {
+      const hint = this.engine.getHintMove();
+      if (!hint) {
+        this.endGame('No More Moves!');
+        return;
+      }
+      this.view.setHint(hint.r1, hint.c1, hint.r2, hint.c2);
+      this.audio.playClairvoyanceChime();
+      this.haptics.buttonTap();
+      this.skillsUsed.clairvoyance = true;
+      this.updateSkillsUI();
+    } else if (skillId === 'gravity') {
+      const grav = this.engine.applyGravity();
+      this.audio.playGravityWhoosh();
+      this.haptics.buttonTap();
+      this.view.clearHint();
+      this.skillsUsed.gravity = true;
+      this.updateSkillsUI();
+      this.updateHUD();
+      if (grav.isDeadlocked) {
+        this.endGame('No More Moves!');
+      }
+    } else if (skillId === 'reset') {
+      const rst = this.engine.applyReset();
+      this.audio.playResetShuffle();
+      this.haptics.buttonTap();
+      this.view.clearHint();
+      this.skillsUsed.reset = true;
+      this.updateSkillsUI();
+      this.updateHUD();
+      if (rst.isDeadlocked) {
+        this.endGame('No More Moves!');
+      }
     }
   }
 
@@ -425,6 +566,7 @@ class Rect10Game {
     });
 
     this.openTutorialBtn.addEventListener('click', () => this.openTutorial());
+    this.openMissionsBtn.addEventListener('click', () => this.openMissions());
     this.openLeaderboardMenuBtn.addEventListener('click', () => this.openLeaderboard(this.selectedSize));
 
     this.landingMuteBtn.addEventListener('click', () => {
@@ -469,6 +611,24 @@ class Rect10Game {
         this.setTutorialSlide(slideIdx);
       });
     });
+
+    // --- Missions Events ---
+    this.closeMissionsBtn.addEventListener('click', () => {
+      this.haptics.buttonTap();
+      this.audio.playButtonTick();
+      this.closeMissions();
+    });
+
+    this.closeMissionsActionBtn.addEventListener('click', () => {
+      this.haptics.buttonTap();
+      this.audio.playButtonTick();
+      this.closeMissions();
+    });
+
+    // --- Tactical Skills Events ---
+    this.skillClairvoyanceBtn.addEventListener('click', () => this.useSkill('clairvoyance'));
+    this.skillGravityBtn.addEventListener('click', () => this.useSkill('gravity'));
+    this.skillResetBtn.addEventListener('click', () => this.useSkill('reset'));
 
     // --- In-Game Header & Controls ---
     this.homeBtn.addEventListener('click', () => {
@@ -544,6 +704,7 @@ class Rect10Game {
       );
 
       if (res.success) {
+        this.view.clearHint();
         this.audio.playClearChime(res.pointsAwarded);
         this.haptics.clear();
         this.view.addTileDissolve(res.clearedIndices);
@@ -708,6 +869,8 @@ class Rect10Game {
     window.addEventListener('popstate', () => {
       if (this.tutorialModal.classList.contains('active')) {
         this.closeTutorial();
+      } else if (this.missionsModal.classList.contains('active')) {
+        this.closeMissions();
       } else if (this.leaderboardModal.classList.contains('active')) {
         this.closeLeaderboard();
       } else if (this.pauseModal.classList.contains('active')) {
@@ -725,6 +888,8 @@ class Rect10Game {
         e.preventDefault();
         if (this.tutorialModal.classList.contains('active')) {
           this.closeTutorial();
+        } else if (this.missionsModal.classList.contains('active')) {
+          this.closeMissions();
         } else if (this.leaderboardModal.classList.contains('active')) {
           this.closeLeaderboard();
         } else if (this.isPaused) {
@@ -732,7 +897,7 @@ class Rect10Game {
         } else if (this.isPlaying) {
           this.pauseGame();
         }
-      } else if ((e.code === 'Space' || e.code === 'Enter') && !this.isPlaying && !this.leaderboardModal.classList.contains('active') && !this.tutorialModal.classList.contains('active')) {
+      } else if ((e.code === 'Space' || e.code === 'Enter') && !this.isPlaying && !this.leaderboardModal.classList.contains('active') && !this.tutorialModal.classList.contains('active') && !this.missionsModal.classList.contains('active')) {
         e.preventDefault();
         if (this.landingScreen.classList.contains('active')) {
           this.launchGame();
@@ -862,8 +1027,11 @@ class Rect10Game {
       }
 
       this.highScore = this.leaderboard.getAllTimeBest(this.selectedSize);
+      this.missions.addCareerScore(score);
     }
 
+    this.view.clearHint();
+    this.updateSkillsUI();
     this.updateHUD();
     this.gameOverModal.classList.add('active');
     history.pushState({ modal: 'gameover' }, '');

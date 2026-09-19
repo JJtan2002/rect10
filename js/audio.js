@@ -193,6 +193,78 @@ class Rect10Audio {
     osc.start(t);
     osc.stop(t + 0.028);
   }
+
+  /**
+   * Crystalline shimmer chime for Clairvoyance hint.
+   */
+  playClairvoyanceChime() {
+    if (this.isMuted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    [987.77, 1318.51, 1567.98].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+      gain.gain.setValueAtTime(0.001, now + idx * 0.05);
+      gain.gain.linearRampToValueAtTime(0.08, now + idx * 0.05 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.05 + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.05);
+      osc.stop(now + idx * 0.05 + 0.48);
+    });
+  }
+
+  /**
+   * Low-pitch downward whoosh for Gravity collapse.
+   */
+  playGravityWhoosh() {
+    if (this.isMuted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(450, t);
+    osc.frequency.exponentialRampToValueAtTime(80, t + 0.28);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.09, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.32);
+  }
+
+  /**
+   * Multi-frequency sparkle shuffle for Reset.
+   */
+  playResetShuffle() {
+    if (this.isMuted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const notes = [392, 523.25, 659.25, 783.99];
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+      gain.gain.setValueAtTime(0.001, now + idx * 0.04);
+      gain.gain.linearRampToValueAtTime(0.07, now + idx * 0.04 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.04 + 0.22);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.04);
+      osc.stop(now + idx * 0.04 + 0.24);
+    });
+  }
 }
 
 if (typeof window !== 'undefined') {
