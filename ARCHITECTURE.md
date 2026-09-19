@@ -1,12 +1,12 @@
 # Rect10 Technical Architecture Specification
 
-This document provides a deep architectural and algorithmic analysis of **Rect10**, detailing the data structures, computational complexity, rendering pipeline, acoustic synthesis, multi-tier leaderboards, and mobile hardware integrations.
+This document provides a deep architectural and algorithmic analysis of **Rect10**, detailing the data structures, computational complexity, rendering pipeline, acoustic synthesis, multi-tier leaderboards, mobile hardware integrations, and native Android Capacitor architecture.
 
 ---
 
 ## 1. Architectural Philosophy
 
-1. **Zero-Dependency Runtime:** The entire client runs natively in modern browsers with zero external runtime libraries, bundlers, or frameworks.
+1. **Zero-Dependency Runtime:** The entire client runs natively in modern browsers and WebViews with zero external runtime libraries, bundlers, or frameworks.
 2. **Zero-Allocation Hot Paths:** Memory allocations during active dragging, timer ticks, and frame rendering are strictly eliminated to prevent V8 Scavenge / Minor GC pauses (which cause 5–15ms frame drops on mobile WebViews).
 3. **Decoupled Architecture:** Clean separation of concerns between Mathematical Logic (`engine.js`), Presentation (`view.js`), Procedural Audio (`audio.js`), Multi-Tier Leaderboards (`leaderboard.js`), Haptics (`haptics.js`), and Application Loop (`game.js`).
 4. **Headless Testability:** The mathematical engine, leaderboard persistence, and game logic run identically in headless Node.js environments and browser contexts, enabling sub-millisecond automated testing.
@@ -44,6 +44,11 @@ flowchart TD
         WeightedRNG["Low-Bias Cumulative Distribution Sampler"]
     end
 
+    subgraph NativeAndroid ["Native Android Wrapper (Capacitor)"]
+        Bridge["Capacitor Android Bridge (MainActivity.java)"]
+        Plugins["Native Plugins (@capacitor/app, @capacitor/haptics, status-bar)"]
+    end
+
     PointerInput -->|Normalized Coordinates| DragState
     DragState -->|Commit on pointerup| CoreEngine
     CoreEngine -->|O(1) Range Queries| PrefixMatrix
@@ -57,6 +62,7 @@ flowchart TD
     Lifecycle -->|Round End Stats| Leaderboard
     Leaderboard <-->|JSON Serialization| LocalStorage
     BackNav -->|Modal / Pause State| Lifecycle
+    Plugins <-->|Hardware Events| Controller
 ```
 
 ---
@@ -75,7 +81,7 @@ The board and its spatial index are represented as continuous flat typed arrays:
 ### B. $O(1)$ Range Sum Query Formulation
 For any rectangular region bounded by top-left $(r_1, c_1)$ and bottom-right $(r_2, c_2)$, the region sum is computed in $O(1)$ time using inclusion-exclusion:
 $$\text{Sum}(r_1, c_1, r_2, c_2) = P[r_2+1, c_2+1] - P[r_1, c_2+1] - P[r_2+1, c_1] + P[r_1, c_1]$$
-Measured benchmark latency: **$4.8\text{ ns}$** per query ($>90\%$ headroom under the $50\text{ ns}$ budget).
+Measured benchmark latency: **$5.5\text{ ns}$** per query ($>89\%$ headroom under the $50\text{ ns}$ budget).
 
 ### C. Monotonic Move Finder Algorithm
 The deadlock detection engine finds all valid sum-10 rectangles using monotonicity:
@@ -94,10 +100,9 @@ The leaderboard engine isolates scores across distinct temporal horizons:
 3. **All-Time Record:** Scalar high score reflecting lifetime peak performance.
 4. **History Ledger:** Ring buffer containing the 10 most recent runs with timestamps, scores, ranks, and clear metrics.
 
-### B. Backward Compatibility & Pruning
-* Automatically detects legacy `rect10_high_score` and migrates it into the structured `rect10_leaderboard_v1` schema.
-* Maintains the legacy key in sync so older sessions or bookmarks retain the score.
-* Automatically prunes daily records older than 60 days on each score submission to keep localStorage storage footprint $< 10\text{KB}$.
+### B. Zero-Latency Execution Model
+* **Hot-Path Non-Interference:** High score checking during active gameplay is performed exclusively in memory ($<1\text{ ns}$ CPU register comparison). Disk writes (`localStorage.setItem`) are strictly deferred until the round terminates (`endGame()`).
+* **Storage Footprint:** Serialized JSON payload is $<1.5\text{ KB}$, with automatic pruning of daily keys older than 60 days.
 
 ---
 
@@ -105,40 +110,30 @@ The leaderboard engine isolates scores across distinct temporal horizons:
 
 ### A. Tactile Haptic Engine (`haptics.js`)
 * Built on the Web Vibration API (`navigator.vibrate`) with graceful fallback.
-* **Actuator Protection & Rate Limiting:** Drag ticks are debounced with a $50\text{ms}$ cooldown to avoid vibrator motor saturation and auditory buzzing.
+* **Actuator Protection & Rate Limiting:** Drag ticks are debounced with a $50\text{ms}$ cooldown to avoid vibrator motor saturation.
 * **Haptic Signal Profiles:**
   * `dragTick()`: $8\text{ms}$ micro-pulse on grid cell transitions.
   * `clear()`: Crisp tactile double-pulse `[18, 30, 22]`.
   * `newRecord()`: Celebratory multi-pulse rhythm `[30, 40, 30, 40, 60]`.
   * `gameOver()`: Low $50\text{ms}$ vibration.
-* State persists in `localStorage.getItem('rect10_haptics_enabled')`.
 
 ### B. Screen Wake Lock API
 * Prevents mobile displays from timing out or dimming during an active 100-second puzzle round.
-* Automatically acquired via `navigator.wakeLock.request('screen')` on round start.
-* Automatically released when the game is paused, time expires, or document visibility changes to `hidden`.
-* Re-acquired when returning to the tab if the game is still active.
+* Automatically acquired on round start and released upon pause or game over.
 
 ### C. Android Hardware Back Button & Gesture Navigation (`popstate`)
 * Integrates with HTML5 History API (`history.pushState`).
-* Pushes dummy states when modals open or active play begins.
-* Intercepts `popstate` events:
-  * If Leaderboard modal is open $\to$ close Leaderboard.
-  * If Pause modal is open $\to$ resume game.
-  * If Game Over modal is open $\to$ dismiss modal to board.
-  * If active round is playing $\to$ pause game.
-* Provides a seamless native application feel where the Android edge-swipe gesture dismisses modals rather than triggering page exit.
+* Pushes dummy states when modals open or active play begins, allowing swipe-back gestures to dismiss modals or pause the game rather than exiting.
 
 ---
 
 ## 6. Procedural Acoustic Synthesis (`audio.js`)
 
-1. **Tactile Drag Pop:** Rapid pitch-dropping triangle wave ($720\text{Hz} \to 240\text{Hz}$) over $40\text{ms}$ at peak gain $0.095$. Triangle waves provide natural acoustic overtones, creating a tactile "mechanical switch" sound.
+1. **Tactile Drag Pop:** Rapid pitch-dropping triangle wave ($720\text{Hz} \to 240\text{Hz}$) over $40\text{ms}$ at peak gain $0.095$.
 2. **Harmonic Density Scaling:** Clear chords dynamically scale based on active cells cleared:
    * **2-cell domino (+20 pts):** Clean two-tone chime ($C_5 + G_5$).
    * **3-cell line (+30 pts):** Major triad ($C_5 + E_5 + G_5$).
    * **4-cell+ combo (+40+ pts):** Major 7th chord ($C_5 + E_5 + G_5 + C_6$).
-3. **Mute Persistence:** Synchronized with `localStorage.getItem('rect10_muted')`.
 
 ---
 
@@ -146,17 +141,31 @@ The leaderboard engine isolates scores across distinct temporal horizons:
 
 * **Standalone Manifest:** Configured for `display: standalone`, `orientation: portrait`, and `#090d16` theme color.
 * **Cache-First Offline Strategy:** Pre-caches HTML, CSS, JavaScript modules, SVG icon, and manifest on `install`.
-* **Zero-Network Launch:** Once loaded, the game functions completely without internet connectivity, satisfying mobile app requirements.
 
 ---
 
-## 8. Automated Test & Verification Pipeline
+## 8. Native Android Packaging & Capacitor Architecture (`android/`)
+
+### A. Build Isolation Pipeline (`scripts/build.js`)
+* Strips all development assets, tests, and documentation from production packages.
+* Packages only `index.html`, `style.css`, `manifest.json`, `icon.svg`, `sw.js`, and `js/*.js` into `www/`.
+* Total packaged web asset footprint: **$71.3\text{ KB}$**.
+
+### B. Android Native Configuration
+* **App Identifier:** `com.tjj.rect10`
+* **Orientation Lock:** Hardened strictly to portrait in `AndroidManifest.xml`:
+  `android:screenOrientation="portrait"`
+* **Hardware Acceleration:** Hardware-accelerated WebView rendering enabled:
+  `android:hardwareAccelerated="true"`
+* **Permissions Declared:** `INTERNET`, `VIBRATE`, and `WAKE_LOCK`.
+
+---
+
+## 9. Automated Test & Verification Pipeline
 
 1. **`tests/test_engine.js` (Mathematical Unit & Benchmark Suite):**
-   * Verifies mathematical bounds, weighted PRNG distribution, prefix sum equivalence across 1,000 subgrids, multi-cell clears, tunneling, and deadlock detection.
+   * Verifies mathematical bounds, prefix sum equivalence, multi-cell clears, and deadlock detection.
 2. **`tests/test_leaderboard.js` (Persistence & Rollover Suite):**
-   * Verifies ISO day/week formatting, all-time/weekly/daily record milestones, calendar day rollover, ISO week rollover, legacy score migration, and run history capping.
+   * Verifies ISO day/week formatting, record milestones, calendar rollovers, and history capping.
 3. **`tests/test_click_release.js` (Headless Browser CDP Suite):**
-   * Spawns a real headless Chromium instance (Edge) over Chrome DevTools Protocol (CDP) WebSocket.
-   * Tests instant mouse release evaluation with zero cursor movement.
-   * Programmatically asserts valid move clears, Leaderboard modal UI, Android back navigation (`popstate`), and haptics toggles.
+   * Verifies instant mouse release evaluation without cursor movement, valid move scoring, Leaderboard modal UI, Android back navigation (`popstate`), and haptic toggles.

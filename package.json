@@ -4,6 +4,9 @@
   "description": "Fast-paced mobile 11x15 grid puzzle game where you select rectangular regions summing to 10.",
   "main": "js/game.js",
   "scripts": {
+    "build": "node scripts/build.js",
+    "build:android": "node scripts/build.js && npx cap sync android",
+    "open:android": "npx cap open android",
     "test": "node tests/test_engine.js && node tests/test_leaderboard.js && node tests/test_click_release.js",
     "test:unit": "node tests/test_engine.js && node tests/test_leaderboard.js",
     "test:leaderboard": "node tests/test_leaderboard.js",
@@ -20,8 +23,17 @@
     "haptics",
     "zero-dependency",
     "android",
+    "capacitor",
     "pwa"
   ],
   "author": "JJtan2002",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3"
+  }
 }

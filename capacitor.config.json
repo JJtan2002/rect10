@@ -1,0 +1,17 @@
+{
+  "appId": "com.tjj.rect10",
+  "appName": "Rect10",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#090d16"
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#090d16"
+    }
+  }
+}

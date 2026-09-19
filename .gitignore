@@ -7,10 +7,19 @@ desktop.ini
 node_modules/
 package-lock.json
 
-# Build & Mobile Artifacts
+# Web Build Output
+www/
 dist/
 build/
-.gradle/
+
+# Android Build & Local IDE Artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/local.properties
+android/captures/
+android/.cxx/
 *.apk
 *.aab
 *.jks
