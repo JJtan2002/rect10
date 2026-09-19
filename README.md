@@ -1,6 +1,6 @@
 # Rect10 — 10-Sum Grid Puzzle
 
-> A fast-paced, tactile arithmetic puzzle game engineered for mobile devices. Drag to select rectangular regions summing to exactly 10 on an 11×15 grid. Built with zero runtime dependencies, high-DPI Canvas 2D rendering, sub-microsecond prefix sum queries, and procedural Web Audio synthesis.
+> A fast-paced, tactile arithmetic puzzle game engineered for mobile devices. Drag to select rectangular regions summing to exactly 10 on an 11×15 grid. Built with zero runtime dependencies, high-DPI Canvas 2D rendering, sub-microsecond prefix sum queries, procedural Web Audio synthesis, multi-tier persistent leaderboards, tactile haptics, and offline PWA support.
 
 ---
 
@@ -14,6 +14,16 @@
 4. **Empty Space Tunneling:** Cleared cells leave empty tiles ($0$). These tiles contribute $0$ to subsequent rectangle sums, acting as zero-cost bridges (e.g. $[4] - [\text{empty}] - [6] = 10$).
 5. **The Strategic Trade-Off:** Clearing large composite rectangles ($1-2-3-4$ for $+40\text{ pts}$) yields high immediate score, but consumes low digits that could otherwise match isolated high numbers ($6, 7, 8, 9$).
 6. **100-Second Clock & Deadlock Detection:** Play against a 100-second timer with a dynamic urgency bar. The round terminates when time runs out or when no valid sum-10 rectangles remain on the board.
+
+---
+
+## Native Mobile Hardening & Features (Phase 5)
+
+* **Multi-Tier Persistent Leaderboards:** Tracks **All-Time Records**, **Weekly Bests** (ISO calendar weeks resetting Mondays), and **Daily Bests** (resetting at midnight local time) in persistent storage, alongside a 10-run game history ledger.
+* **Tactile Haptic Feedback (Web Vibration API):** Subtle $8\text{ms}$ micro-pulse on cell boundary drags, distinct double-pulse on sum-10 clears, and rhythmic celebratory burst on new records. Toggleable via 📳 button in header.
+* **Screen Wake Lock API:** Keeps mobile screens active during 100-second gameplay sessions without dimming or sleeping.
+* **Android Hardware Back Button & Gesture Navigation:** Automatically binds to browser history state (`popstate`) so back gestures naturally dismiss modals or pause the active round rather than exiting the application.
+* **Offline PWA Shell (`sw.js` & `manifest.json`):** Pre-caches application assets, allowing full offline playability and installability to mobile home screens.
 
 ---
 
@@ -38,7 +48,7 @@ Then navigate to `http://localhost:8080` on your PC, or `http://<YOUR_LOCAL_IP>:
 
 ## Running Tests & Benchmarks
 
-Rect10 includes two test suites: a pure Node.js mathematical engine suite and an automated headless Chrome/Edge browser integration test running over Chrome DevTools Protocol (CDP).
+Rect10 includes three test suites: a pure Node.js mathematical engine suite, a multi-tier leaderboard persistence suite, and an automated headless Chrome/Edge browser integration test running over Chrome DevTools Protocol (CDP).
 
 ### Run All Tests:
 ```powershell
@@ -47,19 +57,25 @@ npm test
 
 ### 1. Engine Verification Suite & Microbenchmarks:
 ```powershell
-node tests/test_engine.js
+npm run test:unit
 ```
 * **Correctness:** Verifies $O(1)$ prefix sum queries against 1,000 random subgrids, 2-cell/4-cell scoring, zero-value tunneling, and deadlock detection.
 * **Hot-Path Benchmarks:**
   * **2D Prefix Sum Lookup:** $\approx 5.6\text{ ns}$ per query (target: $< 50\text{ ns}$).
   * **Full Board Deadlock Scan:** $\approx 0.003\text{ ms}$ per scan (target: $< 1.0\text{ ms}$).
 
-### 2. Automated Headless Browser CDP Test:
+### 2. Leaderboard Unit Suite:
 ```powershell
-node tests/test_click_release.js
+npm run test:leaderboard
+```
+* Verifies ISO day/week formatting, all-time/weekly/daily rollover, legacy migration, and run history capping.
+
+### 3. Automated Headless Browser CDP Test:
+```powershell
+npm run test:browser
 ```
 * Spawns a real headless browser session over WebSocket CDP.
-* Verifies pointer events, ensuring mouse release without cursor motion instantly evaluates, clears valid combinations, and dismisses the selection box without latency.
+* Verifies pointer events, instant mouse release evaluation without cursor movement, Leaderboard modal UI, Android back button (`popstate`), and haptic toggles.
 
 ---
 
@@ -78,8 +94,11 @@ node tests/test_click_release.js
 
 ```text
 rect10/
-├── index.html        # Responsive mobile-first shell & HUD
-├── style.css         # Dark theme (#090d16), touch-action locking, notch support
+├── index.html        # Responsive mobile-first shell, HUD, and modals
+├── style.css         # Dark theme (#090d16), notch support, and modal styles
+├── manifest.json     # PWA Web App Manifest for mobile installation
+├── sw.js             # Offline-first Service Worker cache
+├── icon.svg          # High-contrast vector launcher icon
 ├── package.json      # Test runner scripts and metadata
 ├── ARCHITECTURE.md   # Deep architectural and mathematical design documentation
 ├── README.md         # Project documentation & quickstart
@@ -87,17 +106,14 @@ rect10/
 │   ├── engine.js     # Pure logic: 2D prefix sums, weighted RNG, monotonic move finder
 │   ├── view.js       # High-DPI Canvas 2D presentation & tile dissolve animations
 │   ├── audio.js      # Zero-dependency procedural Web Audio acoustic synthesizer
-│   └── game.js       # Application coordinator, timer loop, and analytics
+│   ├── leaderboard.js# Multi-tier persistent leaderboard (Daily, Weekly, All-Time)
+│   ├── haptics.js    # Web Vibration API controller
+│   └── game.js       # Application coordinator, wake lock, and gesture navigation
 └── tests/
     ├── test_engine.js        # Mathematical verification & latency microbenchmarks
-    └── test_click_release.js # Headless browser CDP drag-and-release integration test
+    ├── test_leaderboard.js   # Multi-tier leaderboard rollover & migration unit tests
+    └── test_click_release.js # Headless browser CDP integration test
 ```
-
----
-
-## Technical Deep Dive
-
-For an exhaustive analysis of the data structures, $O(1)$ 2D prefix sum matrices, monotonic move pruning, procedural acoustic synthesis, and mobile touch event architectures, read [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 

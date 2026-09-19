@@ -61,11 +61,11 @@ html, body {
 
 .header-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .game-title {
-  font-size: 1.35rem;
+  font-size: 1.3rem;
   font-weight: 800;
   letter-spacing: -0.5px;
   background: linear-gradient(135deg, #38bdf8, #818cf8);
@@ -77,16 +77,21 @@ html, body {
   background: var(--bg-elevated);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  font-size: 0.95rem;
-  padding: 6px 10px;
+  font-size: 0.9rem;
+  padding: 6px 8px;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
+  transition: background 0.15s, transform 0.1s, opacity 0.15s;
 }
 
 .btn-icon:active {
   background: #334155;
   transform: scale(0.95);
+}
+
+.btn-icon.disabled {
+  opacity: 0.45;
+  filter: grayscale(1);
 }
 
 /* Stats HUD */
@@ -311,24 +316,53 @@ html, body {
   margin-bottom: 18px;
 }
 
-.new-best-badge {
-  display: none;
+/* Milestone Badges in Game Over */
+.milestone-badge-container {
   position: absolute;
-  top: -12px;
+  top: -14px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, #facc15, #f59e0b);
-  color: #0f172a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  pointer-events: none;
+}
+
+.milestone-badge {
+  display: none;
   font-size: 0.72rem;
   font-weight: 900;
   padding: 4px 14px;
   border-radius: 999px;
   letter-spacing: 1px;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-.new-best-badge.active {
+.milestone-badge.active {
   display: inline-block;
+  animation: badgePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.milestone-badge.all-time {
+  background: linear-gradient(135deg, #facc15, #f59e0b);
+  color: #0f172a;
+}
+
+.milestone-badge.weekly {
+  background: linear-gradient(135deg, #38bdf8, #2563eb);
+  color: #f8fafc;
+}
+
+.milestone-badge.daily {
+  background: linear-gradient(135deg, #34d399, #059669);
+  color: #0f172a;
+}
+
+@keyframes badgePop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .modal-score-banner {
@@ -398,4 +432,142 @@ html, body {
   flex-direction: column;
   gap: 8px;
   width: 100%;
+}
+
+/* Leaderboard Modal Specifics */
+.leaderboard-modal-content {
+  max-width: 400px;
+  padding: 18px 20px;
+}
+
+.leaderboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.btn-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+
+.btn-close:hover {
+  color: var(--text-primary);
+}
+
+.records-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.record-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.record-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.record-value {
+  font-size: 1.3rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.record-value.gold { color: var(--accent-gold); }
+.record-value.cyan { color: var(--accent-cyan); }
+.record-value.emerald { color: var(--accent-emerald); }
+
+.history-section {
+  text-align: left;
+  margin-bottom: 16px;
+}
+
+.history-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.history-list {
+  max-height: 165px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+.history-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.history-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(30, 41, 66, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+.history-date {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.history-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-score {
+  font-weight: 800;
+  color: var(--accent-gold);
+}
+
+.history-rank {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
+.history-empty {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: 16px 0;
 }

@@ -1,6 +1,6 @@
 /**
- * Automated CDP Integration Test: Verifies that releasing mouse without cursor movement
- * immediately terminates drag selection and resolves the move.
+ * Automated CDP Integration Test: Verifies pointer mechanics, instant release,
+ * Leaderboard modal UI, Haptics toggle, and Android back button popstate handling.
  */
 
 const { spawn } = require('child_process');
@@ -21,7 +21,7 @@ const server = http.createServer((req, res) => {
 
   if (fs.existsSync(filePath)) {
     const ext = path.extname(filePath);
-    const contentType = ext === '.html' ? 'text/html' : ext === '.js' ? 'application/javascript' : 'text/css';
+    const contentType = ext === '.html' ? 'text/html' : ext === '.js' ? 'application/javascript' : ext === '.json' ? 'application/json' : ext === '.svg' ? 'image/svg+xml' : 'text/css';
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(fs.readFileSync(filePath));
   } else {
@@ -103,14 +103,7 @@ async function runTest() {
 
     await new Promise(r => setTimeout(r, 500));
 
-    // Get page info
-    const docInfo = await send('Runtime.evaluate', {
-      expression: `({ href: location.href, html: document.body ? document.body.innerHTML : 'no body' })`,
-      returnByValue: true
-    });
-    console.log("Document info:", JSON.stringify(docInfo));
-
-    // Get canvas bounding box
+    // 1. Check DOM & Canvas bounding box
     const evalRes = await send('Runtime.evaluate', {
       expression: `(() => {
         const canvas = document.getElementById('gameCanvas');
@@ -121,7 +114,6 @@ async function runTest() {
       returnByValue: true
     });
 
-    console.log("Canvas eval result:", JSON.stringify(evalRes));
     if (!evalRes || !evalRes.result || !evalRes.result.value) {
       throw new Error("Could not find canvas coordinates");
     }
@@ -133,7 +125,7 @@ async function runTest() {
 
     console.log(`Simulating mouse drag from (${startX}, ${startY}) to (${endX}, ${endY})...`);
 
-    // 1. Mouse Press
+    // Mouse Press
     await send('Input.dispatchMouseEvent', {
       type: 'mousePressed',
       x: startX,
@@ -142,7 +134,7 @@ async function runTest() {
       clickCount: 1
     });
 
-    // 2. Mouse Move (Dragging)
+    // Mouse Move (Dragging)
     await send('Input.dispatchMouseEvent', {
       type: 'mouseMoved',
       x: endX,
@@ -156,13 +148,11 @@ async function runTest() {
       expression: `window.game.dragState.active`,
       returnByValue: true
     });
-    console.log("During drag: window.game.dragState.active =", state.result.value);
     if (state.result.value !== true) {
       throw new Error("FAIL: dragState.active should be TRUE during drag!");
     }
 
-    // 3. Mouse Release at the EXACT SAME coordinates WITHOUT moving!
-    console.log(`Releasing mouse button at (${endX}, ${endY}) without moving cursor...`);
+    // Release mouse without moving cursor
     await send('Input.dispatchMouseEvent', {
       type: 'mouseReleased',
       x: endX,
@@ -176,7 +166,6 @@ async function runTest() {
       expression: `window.game.dragState.active`,
       returnByValue: true
     });
-    console.log("Immediately after release (NO cursor move): window.game.dragState.active =", state.result.value);
 
     if (state.result.value === false) {
       console.log("✅ Selection box cleared immediately upon mouse release without requiring cursor movement!");
@@ -184,7 +173,7 @@ async function runTest() {
       throw new Error("FAIL: dragState.active remained true after mouse release!");
     }
 
-    // Now test a VALID selection clear
+    // 2. Test a VALID selection clear
     console.log("\nTesting a guaranteed VALID move release without cursor movement...");
     const validMoveRes = await send('Runtime.evaluate', {
       expression: `(() => {
@@ -206,7 +195,6 @@ async function runTest() {
     const vm = validMoveRes.result.value;
     console.log(`Found valid move: [${vm.move.r1},${vm.move.c1}] to [${vm.move.r2},${vm.move.c2}]. Dragging from (${vm.x1},${vm.y1}) to (${vm.x2},${vm.y2})...`);
 
-    // Mouse Press at valid start
     await send('Input.dispatchMouseEvent', {
       type: 'mousePressed',
       x: vm.x1,
@@ -215,7 +203,6 @@ async function runTest() {
       clickCount: 1
     });
 
-    // Mouse Drag to valid end
     await send('Input.dispatchMouseEvent', {
       type: 'mouseMoved',
       x: vm.x2,
@@ -224,7 +211,6 @@ async function runTest() {
       buttons: 1
     });
 
-    // Release at exact same coordinates WITHOUT moving cursor
     await send('Input.dispatchMouseEvent', {
       type: 'mouseReleased',
       x: vm.x2,
@@ -233,22 +219,82 @@ async function runTest() {
       buttons: 0
     });
 
-    // Verify score increased and selection cleared
     const postClearState = await send('Runtime.evaluate', {
       expression: `({ score: window.game.engine.score, clears: window.game.engine.clearsCount, active: window.game.dragState.active })`,
       returnByValue: true
     });
 
-    console.log("Post-release state:", JSON.stringify(postClearState.result.value));
     if (postClearState.result.value.active !== false) {
       throw new Error("FAIL: Selection box remained active after valid release!");
     }
     if (postClearState.result.value.score <= 0 || postClearState.result.value.clears <= 0) {
       throw new Error("FAIL: Valid move was not cleared / scored on release!");
     }
-
     console.log("✅ Valid move cleared and scored successfully on release with zero cursor movement!");
-    console.log("\n🎉 ALL AUTOMATED BROWSER TESTS PASSED PERFECTLY!\n");
+
+    // 3. Test Leaderboard Modal Opening & Closing
+    console.log("\nTesting Leaderboard UI modal...");
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('leaderboardBtn').click()`,
+      returnByValue: true
+    });
+
+    const lbState = await send('Runtime.evaluate', {
+      expression: `({
+        isOpen: document.getElementById('leaderboardModal').classList.contains('active'),
+        allTime: document.getElementById('lbAllTime').textContent,
+        weekly: document.getElementById('lbWeekly').textContent,
+        daily: document.getElementById('lbDaily').textContent
+      })`,
+      returnByValue: true
+    });
+
+    if (!lbState.result.value.isOpen) {
+      throw new Error("FAIL: Leaderboard modal failed to open upon click!");
+    }
+    console.log("✅ Leaderboard modal opened cleanly with values:", JSON.stringify(lbState.result.value));
+
+    // Test Android Back Button Popstate handling to close modal
+    console.log("Testing Android back button (popstate) dismissing modal...");
+    await send('Runtime.evaluate', {
+      expression: `window.dispatchEvent(new PopStateEvent('popstate'))`,
+      returnByValue: true
+    });
+
+    const lbAfterBack = await send('Runtime.evaluate', {
+      expression: `document.getElementById('leaderboardModal').classList.contains('active')`,
+      returnByValue: true
+    });
+
+    if (lbAfterBack.result.value === false) {
+      console.log("✅ Android back gesture (popstate) successfully closed Leaderboard modal!");
+    } else {
+      throw new Error("FAIL: Leaderboard modal remained open after popstate!");
+    }
+
+    // 4. Test Haptics Toggle
+    console.log("\nTesting Haptics toggle button...");
+    const hapticBefore = await send('Runtime.evaluate', {
+      expression: `window.game.haptics.isEnabled`,
+      returnByValue: true
+    });
+
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('hapticBtn').click()`,
+      returnByValue: true
+    });
+
+    const hapticAfter = await send('Runtime.evaluate', {
+      expression: `window.game.haptics.isEnabled`,
+      returnByValue: true
+    });
+
+    if (hapticAfter.result.value !== !hapticBefore.result.value) {
+      throw new Error("FAIL: Haptic state did not toggle!");
+    }
+    console.log("✅ Haptic feedback toggled successfully!");
+
+    console.log("\n🎉 ALL AUTOMATED BROWSER & NATIVE INTEGRATION TESTS PASSED PERFECTLY!\n");
 
     ws.close();
   } finally {

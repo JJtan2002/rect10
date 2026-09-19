@@ -1,0 +1,20 @@
+{
+  "name": "Rect10 — 10-Sum Grid Puzzle",
+  "short_name": "Rect10",
+  "description": "Fast-paced mobile 11x15 grid puzzle game where you select rectangular regions summing to 10.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "categories": ["games", "puzzle"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

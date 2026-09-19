@@ -9,7 +9,10 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Rect10 — 11x15 Sum Puzzle</title>
-  <link rel="stylesheet" href="style.css?v=1.0.3">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css?v=1.0.6">
 </head>
 <body>
   <div class="app-container">
@@ -18,6 +21,8 @@
       <div class="title-bar">
         <h1 class="game-title">RECT10</h1>
         <div class="header-actions">
+          <button id="leaderboardBtn" class="btn-icon" aria-label="View Leaderboard & Records">🏆</button>
+          <button id="hapticBtn" class="btn-icon" aria-label="Toggle Haptics">📳</button>
           <button id="pauseBtn" class="btn-icon" aria-label="Pause Game">⏸️</button>
           <button id="muteBtn" class="btn-icon" aria-label="Toggle Sound">🔊</button>
         </div>
@@ -78,10 +83,52 @@
     </div>
   </div>
 
-  <!-- Game Over Modal with Full Round Analytics -->
+  <!-- Leaderboard / Records Modal -->
+  <div id="leaderboardModal" class="modal-overlay">
+    <div class="modal-content leaderboard-modal-content">
+      <div class="leaderboard-header">
+        <h2 class="modal-title">🏆 Records</h2>
+        <button id="closeLeaderboardBtn" class="btn-close" aria-label="Close">✕</button>
+      </div>
+
+      <!-- Record Tier Cards -->
+      <div class="records-grid">
+        <div class="record-card">
+          <span class="record-label">All-Time</span>
+          <span id="lbAllTime" class="record-value gold">0</span>
+        </div>
+        <div class="record-card">
+          <span class="record-label">This Week</span>
+          <span id="lbWeekly" class="record-value cyan">0</span>
+        </div>
+        <div class="record-card">
+          <span class="record-label">Today</span>
+          <span id="lbDaily" class="record-value emerald">0</span>
+        </div>
+      </div>
+
+      <!-- Run History List -->
+      <div class="history-section">
+        <h3 class="history-title">Recent Runs</h3>
+        <div id="lbHistoryList" class="history-list">
+          <div class="history-empty">No games completed yet.</div>
+        </div>
+      </div>
+
+      <div class="modal-actions-col">
+        <button id="closeLeaderboardActionBtn" class="action-btn">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over Modal with Multi-Tier Badges & Analytics -->
   <div id="gameOverModal" class="modal-overlay">
     <div class="modal-content">
-      <div id="newBestBadge" class="new-best-badge">NEW RECORD!</div>
+      <div id="milestoneBadgeContainer" class="milestone-badge-container">
+        <div id="allTimeBestBadge" class="milestone-badge all-time">🌟 ALL-TIME RECORD!</div>
+        <div id="weeklyBestBadge" class="milestone-badge weekly">⚡ THIS WEEK'S BEST!</div>
+        <div id="dailyBestBadge" class="milestone-badge daily">📅 TODAY'S BEST!</div>
+      </div>
       <h2 id="modalTitle" class="modal-title">Time's Up!</h2>
 
       <div class="modal-score-banner">
@@ -125,9 +172,22 @@
   </div>
 
   <!-- Scripts in dependency order (with cache-busting) -->
-  <script src="js/engine.js?v=1.0.5"></script>
-  <script src="js/view.js?v=1.0.5"></script>
-  <script src="js/audio.js?v=1.0.5"></script>
-  <script src="js/game.js?v=1.0.5"></script>
+  <script src="js/engine.js?v=1.0.6"></script>
+  <script src="js/view.js?v=1.0.6"></script>
+  <script src="js/audio.js?v=1.0.6"></script>
+  <script src="js/leaderboard.js?v=1.0.6"></script>
+  <script src="js/haptics.js?v=1.0.6"></script>
+  <script src="js/game.js?v=1.0.6"></script>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {
+          // SW registration skipped in non-http/https environments
+        });
+      });
+    }
+  </script>
 </body>
 </html>
