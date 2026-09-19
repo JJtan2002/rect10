@@ -128,9 +128,27 @@ class Rect10Game {
     this.modalLargestClear = document.getElementById('modalLargestClear');
     this.modalPace = document.getElementById('modalPace');
     this.modalBreakdown = document.getElementById('modalBreakdown');
+    this.modalLastClear = document.getElementById('modalLastClear');
+    this.modalDuration = document.getElementById('modalDuration');
     this.playAgainBtn = document.getElementById('playAgainBtn');
     this.copyStatsBtn = document.getElementById('copyStatsBtn');
     this.gameOverHomeBtn = document.getElementById('gameOverHomeBtn');
+
+    // DOM Elements - AI Autoplay & Telemetry HUD
+    this.aiAutoplayLandingBtn = document.getElementById('aiAutoplayLandingBtn');
+    this.hudAiToggleBtn = document.getElementById('hudAiToggleBtn');
+    this.aiTelemetryBar = document.getElementById('aiTelemetryBar');
+    this.aiTelMode = document.getElementById('aiTelMode');
+    this.aiTelNodes = document.getElementById('aiTelNodes');
+    this.aiTelTime = document.getElementById('aiTelTime');
+    this.aiTelStrategy = document.getElementById('aiTelStrategy');
+
+    this.aiPlayer = (typeof Rect10AiPlayer !== 'undefined')
+      ? new Rect10AiPlayer(this, {
+          onTelemetryUpdate: (t) => this.updateAiTelemetryHUD(t)
+        })
+      : null;
+    this.wasAiAutoplaying = false;
 
     // Drag selection state (zero-allocation reusable struct)
     this.dragState = {
@@ -144,6 +162,8 @@ class Rect10Game {
     // Game lifecycle state
     this.ROUND_DURATION_SEC = 100.0;
     this.timeLeft = this.ROUND_DURATION_SEC;
+    this.roundElapsedSec = 0;
+    this.lastClearTimeSec = null;
     this.isPlaying = false;
     this.isPaused = false;
     this.lastFrameTime = 0;
@@ -254,6 +274,8 @@ class Rect10Game {
     const cfg = GRID_SIZES[this.selectedSize];
     this.engine.init(null, cfg.minMoves);
     this.timeLeft = this.ROUND_DURATION_SEC;
+    this.roundElapsedSec = 0;
+    this.lastClearTimeSec = null;
     this.isPlaying = true;
     this.isPaused = false;
     this.lastFrameTime = performance.now();
@@ -278,10 +300,84 @@ class Rect10Game {
     this.updateHUD();
   }
 
+  commitMove(r1, c1, r2, c2) {
+    if (!this.isPlaying || this.isPaused) return null;
+
+    const res = this.engine.attemptClear(r1, c1, r2, c2);
+
+    if (res.success) {
+      this.lastClearTimeSec = this.roundElapsedSec;
+      this.view.clearHint();
+      this.audio.playClearChime(res.pointsAwarded);
+      this.haptics.clear();
+      this.view.addTileDissolve(res.clearedIndices);
+      this.view.addFloatingScore(r1, c1, r2, c2, res.pointsAwarded);
+
+      if (this.selectedMode === 'challenge') {
+        if (this.engine.score > this.highScore) {
+          this.highScore = this.engine.score;
+        }
+      }
+
+      this.updateHUD();
+
+      if (res.isDeadlocked) {
+        this.endGame('No More Moves!');
+      }
+    }
+    return res;
+  }
+
+  toggleAiAutoplay() {
+    if (!this.aiPlayer) return;
+    if (this.aiPlayer.isAutoplaying) {
+      this.aiPlayer.stopAutoplay();
+      this.isAiRun = false;
+      this.updateAiUI(false);
+    } else {
+      this.isAiRun = true;
+      if (!this.isPlaying) {
+        this.launchGame('challenge', 'large');
+      }
+      this.aiPlayer.startAutoplay();
+      this.updateAiUI(true);
+    }
+  }
+
+  updateAiUI(isActive) {
+    if (this.hudAiToggleBtn) {
+      this.hudAiToggleBtn.classList.toggle('ai-active', isActive);
+    }
+    if (this.aiTelemetryBar) {
+      this.aiTelemetryBar.classList.toggle('hidden', !isActive);
+    }
+  }
+
+  updateAiTelemetryHUD(t) {
+    if (!this.aiTelemetryBar || this.aiTelemetryBar.classList.contains('hidden')) return;
+    if (this.aiTelMode) {
+      this.aiTelMode.textContent = t.mode.toUpperCase();
+      this.aiTelMode.className = `ai-pill ${t.mode}`;
+    }
+    if (this.aiTelNodes) {
+      this.aiTelNodes.textContent = t.nodesEvaluated.toLocaleString();
+    }
+    if (this.aiTelTime) {
+      this.aiTelTime.textContent = `${t.lastThinkingTimeMs}ms`;
+    }
+    if (this.aiTelStrategy) {
+      this.aiTelStrategy.textContent = t.strategyTag || 'Thinking';
+    }
+  }
+
   pauseGame() {
     if (!this.isPlaying || this.isPaused) return;
     this.isPaused = true;
     this.dragState.active = false;
+    if (this.aiPlayer && this.aiPlayer.isAutoplaying) {
+      this.aiPlayer.stopAutoplay();
+      this.wasAiAutoplaying = true;
+    }
     this.pauseCurtain.classList.add('active');
     this.pauseModal.classList.add('active');
     this.releaseWakeLock();
@@ -296,6 +392,10 @@ class Rect10Game {
     this.pauseCurtain.classList.remove('active');
     this.pauseModal.classList.remove('active');
     this.requestWakeLock();
+    if (this.wasAiAutoplaying && this.aiPlayer) {
+      this.aiPlayer.startAutoplay();
+      this.wasAiAutoplaying = false;
+    }
   }
 
   // --- Tutorial Navigation ---
@@ -488,9 +588,13 @@ class Rect10Game {
       this.lbHistoryList.innerHTML = history.map((item) => {
         const d = new Date(item.timestamp);
         const dateStr = `${d.getMonth() + 1}/${d.getDate()} ${Rect10Leaderboard.pad(d.getHours())}:${Rect10Leaderboard.pad(d.getMinutes())}`;
+        const lastMeta = item.lastClearFormatted ? ` • Last: ${item.lastClearFormatted}` : '';
         return `
           <div class="history-item">
-            <span class="history-date">${dateStr}</span>
+            <div class="history-left">
+              <span class="history-date">${dateStr}</span>
+              <span class="history-meta">${item.clears || 0} clears${lastMeta}</span>
+            </div>
             <div class="history-right">
               <span class="history-rank">${item.rank}</span>
               <span class="history-score">${Rect10Game.formatScore(item.score)} pts</span>
@@ -503,6 +607,14 @@ class Rect10Game {
 
   closeLeaderboard() {
     this.leaderboardModal.classList.remove('active');
+  }
+
+  static formatTime(sec) {
+    if (typeof sec !== 'number' || isNaN(sec) || sec < 0) return '00:00';
+    const totalSec = Math.floor(sec);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${Rect10Leaderboard.pad(m)}:${Rect10Leaderboard.pad(s)}`;
   }
 
   static formatScore(score) {
@@ -567,6 +679,48 @@ class Rect10Game {
       this.audio.playButtonTick();
       this.launchGame(this.selectedMode, this.selectedSize);
     });
+
+    // Developer Secret Trigger: 5 rapid taps on the "RECT10" title toggles AI Autoplay showcase
+    let titleTapCount = 0;
+    let lastTapTime = 0;
+    const registerSecretTap = () => {
+      const now = performance.now();
+      if (now - lastTapTime < 600) {
+        titleTapCount++;
+      } else {
+        titleTapCount = 1;
+      }
+      lastTapTime = now;
+      if (titleTapCount >= 5) {
+        titleTapCount = 0;
+        this.haptics.clear();
+        this.toggleAiAutoplay();
+      }
+    };
+
+    const gameTitleEl = document.querySelector('.game-title');
+    if (gameTitleEl) gameTitleEl.addEventListener('click', registerSecretTap);
+
+    if (this.aiAutoplayLandingBtn) {
+      this.aiAutoplayLandingBtn.addEventListener('click', () => {
+        this.haptics.buttonTap();
+        this.audio.playButtonTick();
+        this.launchGame('challenge', 'large');
+        if (this.aiPlayer) {
+          this.isAiRun = true;
+          this.aiPlayer.startAutoplay();
+          this.updateAiUI(true);
+        }
+      });
+    }
+
+    if (this.hudAiToggleBtn) {
+      this.hudAiToggleBtn.addEventListener('click', () => {
+        this.haptics.buttonTap();
+        this.audio.playButtonTick();
+        this.toggleAiAutoplay();
+      });
+    }
 
     this.openTutorialBtn.addEventListener('click', () => this.openTutorial());
     this.openMissionsBtn.addEventListener('click', () => this.openMissions());
@@ -697,42 +851,13 @@ class Rect10Game {
 
     const endDrag = () => {
       if (!this.dragState.active) return;
+      const sR = this.dragState.startR;
+      const sC = this.dragState.startC;
+      const cR = this.dragState.currentR;
+      const cC = this.dragState.currentC;
       this.dragState.active = false;
 
-      if (!this.isPlaying || this.isPaused) return;
-
-      const res = this.engine.attemptClear(
-        this.dragState.startR,
-        this.dragState.startC,
-        this.dragState.currentR,
-        this.dragState.currentC
-      );
-
-      if (res.success) {
-        this.view.clearHint();
-        this.audio.playClearChime(res.pointsAwarded);
-        this.haptics.clear();
-        this.view.addTileDissolve(res.clearedIndices);
-        this.view.addFloatingScore(
-          this.dragState.startR,
-          this.dragState.startC,
-          this.dragState.currentR,
-          this.dragState.currentC,
-          res.pointsAwarded
-        );
-
-        if (this.selectedMode === 'challenge') {
-          if (this.engine.score > this.highScore) {
-            this.highScore = this.engine.score;
-          }
-        }
-
-        this.updateHUD();
-
-        if (res.isDeadlocked) {
-          this.endGame('No More Moves!');
-        }
-      }
+      this.commitMove(sR, sC, cR, cC);
     };
 
     // Pointer Events
@@ -857,8 +982,8 @@ class Rect10Game {
       const rank = this.calculateRank(score);
       const b = this.engine.clearSizeBreakdown;
       const multi = (b[4] || 0) + (b[5] || 0) + (b['6+'] || 0);
-      const modeLabel = this.selectedMode === 'free' ? 'Zen Free Play' : '100s Challenge';
-      const text = `🎯 Rect10 [${this.selectedSize.toUpperCase()} | ${modeLabel}]: ${Rect10Game.formatScore(score)} pts (${rank})\n⏱️ Clears: ${this.engine.clearsCount} | Largest: ${this.engine.largestClear} blocks\n🧩 2c: ${b[2] || 0} | 3c: ${b[3] || 0} | 4c+: ${multi}`;
+      const lastClearText = this.lastClearTimeSec !== null ? ` • Last: ${Rect10Game.formatTime(this.lastClearTimeSec)}` : '';
+      const text = `🎯 Rect10 [${this.selectedSize.toUpperCase()} | ${modeLabel}]: ${Rect10Game.formatScore(score)} pts (${rank})\n⏱️ Clears: ${this.engine.clearsCount} (${this.modalPace.textContent})${lastClearText} | Largest: ${this.engine.largestClear} blocks\n🧩 2c: ${b[2] || 0} | 3c: ${b[3] || 0} | 4c+: ${multi}`;
       
       if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(() => {
@@ -931,6 +1056,25 @@ class Rect10Game {
         this.pauseGame();
       }
     });
+
+    // URL Demo Parameter Check (?ai=1 or ?demo=ai)
+    if (typeof window !== 'undefined' && window.location) {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('ai') === '1' || urlParams.get('demo') === 'ai') {
+          setTimeout(() => {
+            this.launchGame('challenge', 'large');
+            if (this.aiPlayer) {
+              this.isAiRun = true;
+              this.aiPlayer.startAutoplay();
+              this.updateAiUI(true);
+            }
+          }, 400);
+        }
+      } catch (err) {
+        // Safe fallback in restricted environments
+      }
+    }
   }
 
   updateHUD() {
@@ -965,6 +1109,12 @@ class Rect10Game {
     this.dragState.active = false;
     this.releaseWakeLock();
 
+    if (this.aiPlayer) {
+      this.aiPlayer.stopAutoplay();
+    }
+    this.wasAiAutoplaying = false;
+    this.updateAiUI(false);
+
     this.pauseCurtain.classList.remove('active');
     this.pauseModal.classList.remove('active');
     this.leaderboardModal.classList.remove('active');
@@ -972,8 +1122,29 @@ class Rect10Game {
     // Analytics calculations
     const score = this.engine.score;
     const rank = this.calculateRank(score);
-    const elapsedSec = Math.max(1, this.ROUND_DURATION_SEC - this.timeLeft);
-    const cpm = ((this.engine.clearsCount / elapsedSec) * 60).toFixed(1);
+
+    // Accurate elapsed play time calculation (fixes 3660 CPM bug in Free Mode)
+    const elapsedSec = (this.selectedMode === 'challenge' && reason === "Time's Up!")
+      ? this.ROUND_DURATION_SEC
+      : Math.max(1, this.roundElapsedSec);
+
+    const cpm = this.engine.clearsCount > 0
+      ? ((this.engine.clearsCount / elapsedSec) * 60).toFixed(1)
+      : '0.0';
+
+    const durationFormatted = Rect10Game.formatTime(elapsedSec);
+
+    let lastClearFormatted = '—';
+    let lastClearWithContext = '—';
+    if (this.lastClearTimeSec !== null) {
+      lastClearFormatted = Rect10Game.formatTime(this.lastClearTimeSec);
+      if (this.selectedMode === 'challenge') {
+        const remaining = Math.max(0, this.ROUND_DURATION_SEC - this.lastClearTimeSec).toFixed(1);
+        lastClearWithContext = `${lastClearFormatted} (${remaining}s left)`;
+      } else {
+        lastClearWithContext = lastClearFormatted;
+      }
+    }
 
     this.modalTitle.textContent = reason;
     this.modalScore.textContent = Rect10Game.formatScore(score);
@@ -982,6 +1153,8 @@ class Rect10Game {
     this.modalCells.textContent = this.engine.cellsClearedTotal.toString();
     this.modalLargestClear.textContent = `${this.engine.largestClear} blocks`;
     this.modalPace.textContent = `${cpm} CPM`;
+    if (this.modalLastClear) this.modalLastClear.textContent = lastClearWithContext;
+    if (this.modalDuration) this.modalDuration.textContent = durationFormatted;
 
     const avgSize = this.engine.clearsCount > 0 
       ? (this.engine.cellsClearedTotal / this.engine.clearsCount).toFixed(1)
@@ -996,9 +1169,18 @@ class Rect10Game {
     this.weeklyBestBadge.classList.remove('active');
     this.dailyBestBadge.classList.remove('active');
 
-    if (this.selectedMode === 'free') {
-      // Free Mode: do not log high scores
+    const isAiGame = this.isAiRun || this.wasAiAutoplaying;
+    this.isAiRun = false;
+    this.wasAiAutoplaying = false;
+
+    if (this.selectedMode === 'free' || isAiGame) {
+      // Free Mode or AI Showcase: do not log high scores
       this.freeModeNotice.style.display = 'block';
+      if (isAiGame) {
+        this.freeModeNotice.textContent = 'AI Demonstration — scores are not recorded to personal leaderboards.';
+      } else {
+        this.freeModeNotice.textContent = 'Zen Mode — scores are not logged to persistent records.';
+      }
       this.audio.playGameOverTone();
       this.haptics.gameOver();
     } else {
@@ -1011,7 +1193,10 @@ class Rect10Game {
         clearsCount: this.engine.clearsCount,
         cellsClearedTotal: this.engine.cellsClearedTotal,
         largestClear: this.engine.largestClear,
-        paceCPM: cpm
+        paceCPM: cpm,
+        durationSec: elapsedSec,
+        lastClearSec: this.lastClearTimeSec,
+        lastClearFormatted: lastClearFormatted
       });
 
       if (milestones.isNewAllTime && score > 0) {
@@ -1048,6 +1233,7 @@ class Rect10Game {
       this.lastFrameTime = currentTime;
 
       if (this.isPlaying && !this.isPaused) {
+        this.roundElapsedSec += deltaSec;
         if (this.selectedMode === 'challenge') {
           this.timeLeft -= deltaSec;
           if (this.timeLeft <= 0) {

@@ -124,6 +124,25 @@
       <div id="timerTrack" class="timer-bar-track">
         <div id="timerBarFill" class="timer-bar-fill"></div>
       </div>
+
+      <!-- AI Telemetry HUD Bar (Visible during AI Autoplay) -->
+      <div id="aiTelemetryBar" class="ai-telemetry-bar hidden">
+        <div class="ai-telemetry-item">
+          <span class="ai-telemetry-label">AI</span>
+          <span id="aiTelMode" class="ai-pill strategic">STRATEGIC</span>
+        </div>
+        <div class="ai-telemetry-item">
+          <span class="ai-telemetry-label">NODES</span>
+          <span id="aiTelNodes" class="ai-telemetry-val">0</span>
+        </div>
+        <div class="ai-telemetry-item">
+          <span class="ai-telemetry-label">THINK</span>
+          <span id="aiTelTime" class="ai-telemetry-val">0ms</span>
+        </div>
+        <div class="ai-telemetry-item ai-strategy-item">
+          <span id="aiTelStrategy" class="ai-telemetry-tag">Ready</span>
+        </div>
+      </div>
     </header>
 
     <!-- Main Canvas Viewport -->
@@ -340,6 +359,14 @@
           <span>Pace (Clears / Min)</span>
           <span id="modalPace">0.0 CPM</span>
         </div>
+        <div class="modal-stat-row">
+          <span>Time of Last Clear</span>
+          <span id="modalLastClear">—</span>
+        </div>
+        <div class="modal-stat-row">
+          <span>Round Duration</span>
+          <span id="modalDuration">00:00</span>
+        </div>
         <div class="modal-stat-row breakdown-row">
           <span>Clear Breakdown</span>
           <span id="modalBreakdown">2c: 0 | 3c: 0 | 4c+: 0</span>
@@ -361,6 +388,7 @@
   <script src="js/audio.js?v=1.0.7"></script>
   <script src="js/leaderboard.js?v=1.0.7"></script>
   <script src="js/haptics.js?v=1.0.7"></script>
+  <script src="js/ai_player.js?v=1.0.7"></script>
   <script src="js/game.js?v=1.0.7"></script>
 
   <!-- Service Worker Registration -->

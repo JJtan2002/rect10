@@ -205,7 +205,10 @@ class Rect10Leaderboard {
       clears: details.clearsCount || 0,
       cells: details.cellsClearedTotal || 0,
       largestClear: details.largestClear || 0,
-      pace: details.paceCPM || '0.0'
+      pace: details.paceCPM || '0.0',
+      durationSec: typeof details.durationSec === 'number' ? details.durationSec : null,
+      lastClearSec: typeof details.lastClearSec === 'number' ? details.lastClearSec : null,
+      lastClearFormatted: details.lastClearFormatted || null
     };
 
     bucket.history.unshift(runRecord);

@@ -49,14 +49,26 @@ console.log('✅ PASS: Legacy high score automatically migrated');
 
 // 3. New Record Detection on First Run
 const now1 = new Date('2026-09-19T12:00:00Z');
-const res1 = lb1.recordScore(400, { size: 'large', mode: 'challenge', rank: 'Tactician', clearsCount: 15 }, now1);
+const res1 = lb1.recordScore(400, {
+  size: 'large',
+  mode: 'challenge',
+  rank: 'Tactician',
+  clearsCount: 15,
+  lastClearSec: 88.4,
+  lastClearFormatted: '01:28',
+  durationSec: 100
+}, now1);
 assert.strictEqual(res1.isNewAllTime, true, '400 should be a new all-time record over 350');
 assert.strictEqual(res1.isNewWeekly, true, '400 should be a new weekly best');
 assert.strictEqual(res1.isNewDaily, true, '400 should be a new daily best');
 assert.strictEqual(lb1.getAllTimeBest('large'), 400);
 assert.strictEqual(lb1.getWeeklyBest('large', now1), 400);
 assert.strictEqual(lb1.getTodayBest('large', now1), 400);
-console.log('✅ PASS: Record milestone flags set correctly on higher score');
+const run1 = lb1.getHistory('large')[0];
+assert.strictEqual(run1.lastClearFormatted, '01:28');
+assert.strictEqual(run1.lastClearSec, 88.4);
+assert.strictEqual(run1.durationSec, 100);
+console.log('✅ PASS: Record milestone flags and last clear timestamps set correctly');
 
 // 4. Lower Score on Same Day
 const res2 = lb1.recordScore(250, { size: 'large', mode: 'challenge', rank: 'Calculator' }, now1);
