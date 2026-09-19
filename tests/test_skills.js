@@ -1,7 +1,7 @@
-﻿const assert = require('assert');
+const assert = require('assert');
 const { Rect10Engine } = require('../js/engine.js');
 
-console.log('=== TEST SUITE: Engine Skills (Clairvoyance, Gravity, Reset) ===\n');
+console.log('=== TEST SUITE: Engine Skills (Clairvoyance, Gravity, Reroll) ===\n');
 
 // 1. Test getHintMove()
 {
@@ -51,7 +51,7 @@ console.log('=== TEST SUITE: Engine Skills (Clairvoyance, Gravity, Reset) ===\n'
   console.log('✅ PASS: applyGravity() flushes numbers downward and zeroes upper slots');
 }
 
-// 3. Test applyReset()
+// 3. Test applyReroll() and alias applyReset()
 {
   const engine = new Rect10Engine(7, 10);
   engine.init();
@@ -68,16 +68,19 @@ console.log('=== TEST SUITE: Engine Skills (Clairvoyance, Gravity, Reset) ===\n'
   }
   assert(zeroesBefore.length > 0, 'Should have empty 0 cells');
 
-  const resetRes = engine.applyReset();
-  assert(resetRes.activeCells > 0, 'Reset should touch active cells');
-  assert(resetRes.movesRemaining > 0, 'Reset should ensure valid moves exist');
+  const rerollRes = engine.applyReroll();
+  assert(rerollRes.activeCells > 0, 'Reroll should touch active cells');
+  assert(rerollRes.movesRemaining > 0, 'Reroll should ensure valid moves exist');
 
   // Verify 0 cells remain 0 (player progress preserved)
   zeroesBefore.forEach(pos => {
-    assert.strictEqual(engine.getCellValue(pos.r, pos.c), 0, 'Cleared zeros must remain 0 after reset');
+    assert.strictEqual(engine.getCellValue(pos.r, pos.c), 0, 'Cleared zeros must remain 0 after reroll');
   });
 
-  console.log('✅ PASS: applyReset() re-rolls remaining numbers and guarantees valid moves');
+  const resetAliasRes = engine.applyReset();
+  assert(resetAliasRes.activeCells > 0, 'applyReset alias must function identically');
+
+  console.log('✅ PASS: applyReroll() re-rolls remaining numbers and guarantees valid moves (with applyReset alias)');
 }
 
 console.log('\n🎉 ALL ENGINE SKILL TESTS PASSED SUCCESSFULLY!\n');

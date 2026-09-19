@@ -72,10 +72,12 @@ class Rect10Game {
     // DOM Elements - Tactical Skills Dock
     this.skillClairvoyanceBtn = document.getElementById('skillClairvoyanceBtn');
     this.skillGravityBtn = document.getElementById('skillGravityBtn');
-    this.skillResetBtn = document.getElementById('skillResetBtn');
+    this.skillRerollBtn = document.getElementById('skillRerollBtn') || document.getElementById('skillResetBtn');
+    this.skillResetBtn = this.skillRerollBtn;
     this.skillBadgeClairvoyance = document.getElementById('skillBadgeClairvoyance');
     this.skillBadgeGravity = document.getElementById('skillBadgeGravity');
-    this.skillBadgeReset = document.getElementById('skillBadgeReset');
+    this.skillBadgeReroll = document.getElementById('skillBadgeReroll') || document.getElementById('skillBadgeReset');
+    this.skillBadgeReset = this.skillBadgeReroll;
 
     // DOM Elements - Missions Modal
     this.missionsModal = document.getElementById('missionsModal');
@@ -264,7 +266,7 @@ class Rect10Game {
     this.missionsModal.classList.remove('active');
     this.pauseCurtain.classList.remove('active');
 
-    this.skillsUsed = { clairvoyance: false, gravity: false, reset: false };
+    this.skillsUsed = { clairvoyance: false, gravity: false, reroll: false };
     this.view.clearHint();
     this.updateSkillsUI();
 
@@ -384,12 +386,12 @@ class Rect10Game {
     const skills = [
       { id: 'clairvoyance', btn: this.skillClairvoyanceBtn, badge: this.skillBadgeClairvoyance },
       { id: 'gravity', btn: this.skillGravityBtn, badge: this.skillBadgeGravity },
-      { id: 'reset', btn: this.skillResetBtn, badge: this.skillBadgeReset }
+      { id: 'reroll', btn: this.skillRerollBtn, badge: this.skillBadgeReroll }
     ];
 
     skills.forEach(({ id, btn, badge }) => {
       const isUnlocked = this.missions.isUnlocked(id);
-      const isUsed = this.skillsUsed[id];
+      const isUsed = this.skillsUsed[id] || (id === 'reroll' && this.skillsUsed.reset);
 
       btn.classList.remove('ready', 'locked', 'used');
 
@@ -411,6 +413,7 @@ class Rect10Game {
 
   useSkill(skillId) {
     if (!this.isPlaying || this.isPaused) return;
+    if (skillId === 'reset') skillId = 'reroll';
     if (!this.missions.isUnlocked(skillId)) {
       this.openMissions();
       return;
@@ -439,12 +442,12 @@ class Rect10Game {
       if (grav.isDeadlocked) {
         this.endGame('No More Moves!');
       }
-    } else if (skillId === 'reset') {
-      const rst = this.engine.applyReset();
-      this.audio.playResetShuffle();
+    } else if (skillId === 'reroll') {
+      const rst = this.engine.applyReroll();
+      this.audio.playRerollShuffle();
       this.haptics.buttonTap();
       this.view.clearHint();
-      this.skillsUsed.reset = true;
+      this.skillsUsed.reroll = true;
       this.updateSkillsUI();
       this.updateHUD();
       if (rst.isDeadlocked) {
@@ -628,7 +631,9 @@ class Rect10Game {
     // --- Tactical Skills Events ---
     this.skillClairvoyanceBtn.addEventListener('click', () => this.useSkill('clairvoyance'));
     this.skillGravityBtn.addEventListener('click', () => this.useSkill('gravity'));
-    this.skillResetBtn.addEventListener('click', () => this.useSkill('reset'));
+    if (this.skillRerollBtn) {
+      this.skillRerollBtn.addEventListener('click', () => this.useSkill('reroll'));
+    }
 
     // --- In-Game Header & Controls ---
     this.homeBtn.addEventListener('click', () => {

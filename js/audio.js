@@ -242,9 +242,9 @@ class Rect10Audio {
   }
 
   /**
-   * Multi-frequency sparkle shuffle for Reset.
+   * Multi-frequency sparkle shuffle for Reroll.
    */
-  playResetShuffle() {
+  playRerollShuffle() {
     if (this.isMuted) return;
     this.ensureContext();
     if (!this.ctx) return;
@@ -264,6 +264,10 @@ class Rect10Audio {
       osc.start(now + idx * 0.04);
       osc.stop(now + idx * 0.04 + 0.24);
     });
+  }
+
+  playResetShuffle() {
+    this.playRerollShuffle();
   }
 }
 

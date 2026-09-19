@@ -1,11 +1,11 @@
-﻿/**
+/**
  * Rect10 Missions & Career Progression System (Phase 7+)
  * 
  * Tracks cumulative career score across finished Challenge Mode rounds and unlocks
  * tactical skills at milestone thresholds:
  * - Clairvoyance (100k): Highlights 1 valid sum-10 match.
  * - Gravity (200k): Drops active blocks flush to the bottom.
- * - Reset (300k): Re-rolls remaining blocks with fresh digits.
+ * - Reroll (300k): Re-rolls remaining blocks with fresh digits.
  */
 
 const CAREER_STORAGE_KEY = 'rect10_career_v1';
@@ -27,12 +27,12 @@ const SKILL_DEFINITIONS = {
     tagline: 'Drop Blocks',
     description: 'Collapses all active numbers flush to the bottom of their columns.'
   },
-  reset: {
-    id: 'reset',
-    name: 'Reset',
+  reroll: {
+    id: 'reroll',
+    name: 'Reroll',
     icon: '🎲',
     requiredScore: 300000,
-    tagline: 'Re-roll Board',
+    tagline: 'Reroll Board',
     description: 'Replaces remaining numbers with fresh digits to break deadlocks.'
   }
 };
@@ -53,9 +53,14 @@ class Rect10Missions {
         return { careerScore: 0, skillsUnlocked: [], gamesCompleted: 0 };
       }
       const parsed = JSON.parse(raw);
+      const skills = Array.isArray(parsed.skillsUnlocked) ? [...parsed.skillsUnlocked] : [];
+      // Backward compatibility: map legacy 'reset' to 'reroll'
+      if (skills.includes('reset') && !skills.includes('reroll')) {
+        skills.push('reroll');
+      }
       return {
         careerScore: typeof parsed.careerScore === 'number' ? parsed.careerScore : 0,
-        skillsUnlocked: Array.isArray(parsed.skillsUnlocked) ? parsed.skillsUnlocked : [],
+        skillsUnlocked: skills,
         gamesCompleted: typeof parsed.gamesCompleted === 'number' ? parsed.gamesCompleted : 0
       };
     } catch {
@@ -82,6 +87,9 @@ class Rect10Missions {
   }
 
   isUnlocked(skillId) {
+    if (skillId === 'reset' || skillId === 'reroll') {
+      return this.data.skillsUnlocked.includes('reroll') || this.data.skillsUnlocked.includes('reset');
+    }
     return this.data.skillsUnlocked.includes(skillId);
   }
 

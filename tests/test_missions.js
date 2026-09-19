@@ -1,4 +1,4 @@
-﻿const assert = require('assert');
+const assert = require('assert');
 const { Rect10Missions, SKILL_DEFINITIONS } = require('../js/missions.js');
 
 // Mock localStorage
@@ -16,7 +16,8 @@ const missions = new Rect10Missions('test_career');
 assert.strictEqual(missions.getCareerScore(), 0, 'Initial career score should be 0');
 assert.strictEqual(missions.isUnlocked('clairvoyance'), false, 'Clairvoyance initially locked');
 assert.strictEqual(missions.isUnlocked('gravity'), false, 'Gravity initially locked');
-assert.strictEqual(missions.isUnlocked('reset'), false, 'Reset initially locked');
+assert.strictEqual(missions.isUnlocked('reroll'), false, 'Reroll initially locked');
+assert.strictEqual(missions.isUnlocked('reset'), false, 'Reset alias initially locked');
 console.log('✅ PASS: Initial locked state');
 
 // 1. Earn 45,000 pts (under 100k)
@@ -40,21 +41,23 @@ const res3 = missions.addCareerScore(100000); // 105k + 100k = 205k
 assert.strictEqual(res3.newlyUnlocked.length, 1);
 assert.strictEqual(res3.newlyUnlocked[0].id, 'gravity');
 assert.strictEqual(missions.isUnlocked('gravity'), true);
-assert.strictEqual(missions.isUnlocked('reset'), false);
+assert.strictEqual(missions.isUnlocked('reroll'), false);
 console.log('✅ PASS: Gravity unlocks at 200k threshold');
 
-// 4. Cross 300k -> Reset unlocks
+// 4. Cross 300k -> Reroll unlocks
 const res4 = missions.addCareerScore(100000); // 205k + 100k = 305k
 assert.strictEqual(res4.newlyUnlocked.length, 1);
-assert.strictEqual(res4.newlyUnlocked[0].id, 'reset');
-assert.strictEqual(missions.isUnlocked('reset'), true);
-console.log('✅ PASS: Reset unlocks at 300k threshold');
+assert.strictEqual(res4.newlyUnlocked[0].id, 'reroll');
+assert.strictEqual(missions.isUnlocked('reroll'), true);
+assert.strictEqual(missions.isUnlocked('reset'), true, 'Legacy reset alias must be unlocked');
+console.log('✅ PASS: Reroll unlocks at 300k threshold');
 
 // 5. Persistence reload
 const reloaded = new Rect10Missions('test_career');
 assert.strictEqual(reloaded.getCareerScore(), 305000);
 assert.strictEqual(reloaded.isUnlocked('clairvoyance'), true);
 assert.strictEqual(reloaded.isUnlocked('gravity'), true);
+assert.strictEqual(reloaded.isUnlocked('reroll'), true);
 assert.strictEqual(reloaded.isUnlocked('reset'), true);
 console.log('✅ PASS: Career score and skills persist across instances');
 

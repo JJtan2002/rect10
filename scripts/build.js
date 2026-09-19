@@ -15,7 +15,8 @@ const FILES_TO_COPY = [
   'style.css',
   'manifest.json',
   'icon.svg',
-  'sw.js'
+  'sw.js',
+  'privacy.html'
 ];
 
 const DIRS_TO_COPY = [

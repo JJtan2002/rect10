@@ -450,6 +450,31 @@ async function runTest() {
     if (!hintActive.result.value) throw new Error("FAIL: Clairvoyance hint was not activated on canvas!");
     console.log("✅ Tactical Skill Clairvoyance successfully activated and highlighted hint on Canvas!");
 
+    // 6c. Test Tactical Skill Reroll Activation (300k pts)
+    await send('Runtime.evaluate', {
+      expression: `(() => {
+        window.game.missions.addCareerScore(200000); // reaches 300k total
+        window.game.updateSkillsUI();
+      })()`,
+      returnByValue: true
+    });
+    const rerollReady = await send('Runtime.evaluate', {
+      expression: `document.getElementById('skillRerollBtn').classList.contains('ready')`,
+      returnByValue: true
+    });
+    if (!rerollReady.result.value) throw new Error("FAIL: Reroll skill button did not become ready after 300k points!");
+
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('skillRerollBtn').click()`,
+      returnByValue: true
+    });
+    const rerollUsed = await send('Runtime.evaluate', {
+      expression: `document.getElementById('skillRerollBtn').classList.contains('used')`,
+      returnByValue: true
+    });
+    if (!rerollUsed.result.value) throw new Error("FAIL: Reroll skill button not marked used after activation!");
+    console.log("✅ Tactical Skill Reroll successfully activated and re-rolled board!");
+
     // 7. Test Return to Main Menu via Home Button
     console.log("Testing Home button return to Landing Page...");
     await send('Runtime.evaluate', {

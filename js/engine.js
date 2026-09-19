@@ -340,7 +340,7 @@ class Rect10Engine {
     };
   }
 
-  applyReset() {
+  applyReroll() {
     const CELL_COUNT = this.CELL_COUNT;
     const G = this.grid;
     let activeCells = 0;
@@ -365,6 +365,10 @@ class Rect10Engine {
       movesRemaining: this.movesRemaining,
       isDeadlocked: this.movesRemaining === 0
     };
+  }
+
+  applyReset() {
+    return this.applyReroll();
   }
 }
 
