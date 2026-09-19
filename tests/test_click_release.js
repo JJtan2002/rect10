@@ -343,14 +343,33 @@ async function runTest() {
     if (postClearState.result.value.active !== false || postClearState.result.value.score <= 0) {
       throw new Error("FAIL: Valid move was not cleared / scored on release!");
     }
-    const hudClearsValue = await send('Runtime.evaluate', {
-      expression: `document.getElementById('hudClears').textContent`,
+    const hudScoreValue = await send('Runtime.evaluate', {
+      expression: `document.getElementById('hudScore').textContent`,
       returnByValue: true
     });
-    if (hudClearsValue.result.value !== '1') {
-      throw new Error(`FAIL: hudClears did not increment to 1! Got: ${hudClearsValue.result.value}`);
+    if (parseInt(hudScoreValue.result.value, 10) <= 0) {
+      throw new Error(`FAIL: hudScore did not update with points! Got: ${hudScoreValue.result.value}`);
     }
-    console.log("✅ Valid move cleared and scored successfully (hudClears: 1) on release with zero cursor movement!");
+    const formatCheck = await send('Runtime.evaluate', {
+      expression: `({
+        k10_5: Rect10Game.formatScore(10500),
+        k14_4: Rect10Game.formatScore(14400),
+        k90_5: Rect10Game.formatScore(90500),
+        k10: Rect10Game.formatScore(10000),
+        sub10k: Rect10Game.formatScore(9900)
+      })`,
+      returnByValue: true
+    });
+    if (
+      formatCheck.result.value.k10_5 !== '10.5k' ||
+      formatCheck.result.value.k14_4 !== '14.4k' ||
+      formatCheck.result.value.k90_5 !== '90.5k' ||
+      formatCheck.result.value.k10 !== '10k' ||
+      formatCheck.result.value.sub10k !== '9900'
+    ) {
+      throw new Error("FAIL: Rect10Game.formatScore failed formatting requirements: " + JSON.stringify(formatCheck.result.value));
+    }
+    console.log("✅ Valid move cleared, scored successfully, and score formatting (10.5k, 14.4k, 90.5k) verified!");
 
     // 6. Test Leaderboard Modal with Size Filtering
     console.log("Testing Leaderboard UI modal with size tabs...");

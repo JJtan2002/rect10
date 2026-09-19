@@ -87,14 +87,14 @@ console.log('=== TEST SUITE: Rect10 Engine (11x15 Portrait Layout) ===\n');
 
   const res1 = engine.attemptClear(0, 0, 0, 1);
   assert(res1.success === true, '1x2 selection (1+9) successfully cleared');
-  assert(res1.pointsAwarded === 20, '1x2 awarded 20 points');
+  assert(res1.pointsAwarded === 200, '1x2 awarded 200 points');
   assert(engine.clearSizeBreakdown[2] === 1, 'Clear size breakdown tracks 2-cell clear');
 
   const res2 = engine.attemptClear(2, 2, 3, 3);
   assert(res2.success === true, '2x2 selection (1+2+3+4) successfully cleared');
-  assert(res2.pointsAwarded === 40, '2x2 awarded 40 points');
+  assert(res2.pointsAwarded === 400, '2x2 awarded 400 points');
   assert(engine.clearSizeBreakdown[4] === 1, 'Clear size breakdown tracks 4-cell clear');
-  assert(engine.score === 60, 'Total score is 60');
+  assert(engine.score === 600, 'Total score is 600');
 }
 
 // Test 4: Tunneling on 11x15
@@ -114,7 +114,7 @@ console.log('=== TEST SUITE: Rect10 Engine (11x15 Portrait Layout) ===\n');
   const resTunnel = engine.attemptClear(1, 0, 1, 3);
   assert(resTunnel.success === true, 'Tunneling across empty spaces (3 + 0 + 0 + 7 = 10) succeeds');
   assert(resTunnel.cellsCleared === 2, 'Only active cells cleared (2 cells)');
-  assert(resTunnel.pointsAwarded === 20, 'Awarded 20 points');
+  assert(resTunnel.pointsAwarded === 200, 'Awarded 200 points');
 }
 
 // Test 5: Deadlock on 11x15

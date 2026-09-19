@@ -119,9 +119,9 @@ class Rect10View {
     const centerX = this.offsetX + this.gridPadding + ((minC + maxC + 1) / 2) * this.cellSize;
     const centerY = this.offsetY + this.gridPadding + ((minR + maxR + 1) / 2) * this.cellSize;
 
-    let color = 'rgba(52, 211, 153, '; // Emerald for 20
-    if (points >= 40) color = 'rgba(250, 204, 21, '; // Gold for 40+
-    else if (points >= 30) color = 'rgba(56, 189, 248, '; // Cyan for 30
+    let color = 'rgba(52, 211, 153, '; // Emerald for 200
+    if (points >= 400 || (points >= 40 && points < 100)) color = 'rgba(250, 204, 21, '; // Gold for 400+
+    else if (points >= 300 || (points >= 30 && points < 100)) color = 'rgba(56, 189, 248, '; // Cyan for 300
 
     this.floatingTexts.push({
       text: `+${points}`,

@@ -10,7 +10,7 @@
 const DEFAULT_COLS = 11;
 const DEFAULT_ROWS = 15;
 const TARGET_SUM = 10;
-const POINTS_PER_CELL = 10;
+const POINTS_PER_CELL = 100;
 
 // Weighted frequencies for digits 1-9 to ensure multi-cell rectangles (2x2, 1x3, 1x4) exist.
 // Low-number bias: {1: 18%, 2: 18%, 3: 16%, 4: 14%, 5: 12%, 6: 8%, 7: 6%, 8: 4%, 9: 4%}

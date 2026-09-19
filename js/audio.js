@@ -77,10 +77,10 @@ class Rect10Audio {
 
     let freqs = [523.25, 783.99]; // Default: C5, G5 (2-cell)
 
-    if (points >= 40) {
+    if (points >= 400 || (points >= 40 && points < 100)) {
       // Rich 4-tone chord for 4+ blocks: C5, E5, G5, C6
       freqs = [523.25, 659.25, 783.99, 1046.50];
-    } else if (points >= 30) {
+    } else if (points >= 300 || (points >= 30 && points < 100)) {
       // Triad for 3 blocks: C5, E5, G5
       freqs = [523.25, 659.25, 783.99];
     }

@@ -59,7 +59,6 @@ class Rect10Game {
     this.timerEl = document.getElementById('hudTimer');
     this.timerBarFill = document.getElementById('timerBarFill');
     this.scoreEl = document.getElementById('hudScore');
-    this.clearsEl = document.getElementById('hudClears');
     this.bestScoreEl = document.getElementById('hudBestScore');
     this.muteBtn = document.getElementById('muteBtn');
     this.pauseBtn = document.getElementById('pauseBtn');
@@ -334,9 +333,9 @@ class Rect10Game {
       tab.classList.toggle('active', tab.getAttribute('data-size') === size);
     });
 
-    this.lbAllTime.textContent = this.leaderboard.getAllTimeBest(size).toString();
-    this.lbWeekly.textContent = this.leaderboard.getWeeklyBest(size).toString();
-    this.lbDaily.textContent = this.leaderboard.getTodayBest(size).toString();
+    this.lbAllTime.textContent = Rect10Game.formatScore(this.leaderboard.getAllTimeBest(size));
+    this.lbWeekly.textContent = Rect10Game.formatScore(this.leaderboard.getWeeklyBest(size));
+    this.lbDaily.textContent = Rect10Game.formatScore(this.leaderboard.getTodayBest(size));
 
     const history = this.leaderboard.getHistory(size);
     if (history.length === 0) {
@@ -350,7 +349,7 @@ class Rect10Game {
             <span class="history-date">${dateStr}</span>
             <div class="history-right">
               <span class="history-rank">${item.rank}</span>
-              <span class="history-score">${item.score} pts</span>
+              <span class="history-score">${Rect10Game.formatScore(item.score)} pts</span>
             </div>
           </div>
         `;
@@ -362,11 +361,25 @@ class Rect10Game {
     this.leaderboardModal.classList.remove('active');
   }
 
+  static formatScore(score) {
+    if (typeof score !== 'number' || isNaN(score)) return '0';
+    if (score >= 1000000) {
+      const m = score / 1000000;
+      return `${(m % 1 === 0 ? m.toFixed(0) : m.toFixed(1))}m`;
+    }
+    if (score >= 10000) {
+      const k = score / 1000;
+      const formatted = (k % 1 === 0) ? k.toFixed(0) : k.toFixed(1);
+      return `${formatted}k`;
+    }
+    return score.toString();
+  }
+
   calculateRank(score) {
-    if (score >= 800) return 'Grandmaster';
-    if (score >= 600) return 'Master';
-    if (score >= 400) return 'Tactician';
-    if (score >= 200) return 'Calculator';
+    if (score >= 8000) return 'Grandmaster';
+    if (score >= 6000) return 'Master';
+    if (score >= 4000) return 'Tactician';
+    if (score >= 2000) return 'Calculator';
     return 'Novice';
   }
 
@@ -679,7 +692,7 @@ class Rect10Game {
       const b = this.engine.clearSizeBreakdown;
       const multi = (b[4] || 0) + (b[5] || 0) + (b['6+'] || 0);
       const modeLabel = this.selectedMode === 'free' ? 'Zen Free Play' : '100s Challenge';
-      const text = `🎯 Rect10 [${this.selectedSize.toUpperCase()} | ${modeLabel}]: ${score} pts (${rank})\n⏱️ Clears: ${this.engine.clearsCount} | Largest: ${this.engine.largestClear} blocks\n🧩 2c: ${b[2] || 0} | 3c: ${b[3] || 0} | 4c+: ${multi}`;
+      const text = `🎯 Rect10 [${this.selectedSize.toUpperCase()} | ${modeLabel}]: ${Rect10Game.formatScore(score)} pts (${rank})\n⏱️ Clears: ${this.engine.clearsCount} | Largest: ${this.engine.largestClear} blocks\n🧩 2c: ${b[2] || 0} | 3c: ${b[3] || 0} | 4c+: ${multi}`;
       
       if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(() => {
@@ -767,13 +780,12 @@ class Rect10Game {
       }
     }
 
-    this.scoreEl.textContent = this.engine.score.toString();
-    this.clearsEl.textContent = this.engine.clearsCount.toString();
+    this.scoreEl.textContent = Rect10Game.formatScore(this.engine.score);
 
     if (this.selectedMode === 'free') {
       this.bestScoreEl.textContent = '—';
     } else {
-      this.bestScoreEl.textContent = this.leaderboard.getAllTimeBest(this.selectedSize).toString();
+      this.bestScoreEl.textContent = Rect10Game.formatScore(this.leaderboard.getAllTimeBest(this.selectedSize));
     }
   }
 
@@ -794,7 +806,7 @@ class Rect10Game {
     const cpm = ((this.engine.clearsCount / elapsedSec) * 60).toFixed(1);
 
     this.modalTitle.textContent = reason;
-    this.modalScore.textContent = score.toString();
+    this.modalScore.textContent = Rect10Game.formatScore(score);
     this.modalRank.textContent = rank;
     this.modalClears.textContent = this.engine.clearsCount.toString();
     this.modalCells.textContent = this.engine.cellsClearedTotal.toString();
