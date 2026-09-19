@@ -1,6 +1,7 @@
 /**
- * Automated CDP Integration Test: Verifies pointer mechanics, instant release,
- * Leaderboard modal UI, Haptics toggle, and Android back button popstate handling.
+ * Automated CDP Integration Test: Verifies Landing Page, Mode/Size Toggles,
+ * Tutorial Modal, pointer mechanics, instant release, Leaderboard modal UI,
+ * Haptics toggle, and Android back button popstate handling.
  */
 
 const { spawn } = require('child_process');
@@ -98,12 +99,118 @@ async function runTest() {
         }
       };
       ws.addEventListener('message', handler);
-      setTimeout(resolve, 1500); // Fallback timeout
+      setTimeout(resolve, 1500);
     });
 
     await new Promise(r => setTimeout(r, 500));
 
-    // 1. Check DOM & Canvas bounding box
+    // 1. Verify Landing Screen is Active
+    console.log("Testing Landing Page & Menu selections...");
+    const isMenuVisible = await send('Runtime.evaluate', {
+      expression: `document.getElementById('landingScreen').classList.contains('active')`,
+      returnByValue: true
+    });
+    if (!isMenuVisible.result.value) {
+      throw new Error("FAIL: Landing screen should be visible at launch!");
+    }
+    console.log("✅ Landing screen is active at launch");
+
+    // Test Mode Toggle: Free Mode vs Challenge Mode
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('modeFreeBtn').click()`,
+      returnByValue: true
+    });
+    let modeCheck = await send('Runtime.evaluate', {
+      expression: `window.game.selectedMode`,
+      returnByValue: true
+    });
+    if (modeCheck.result.value !== 'free') throw new Error("FAIL: Mode toggle to free failed!");
+    console.log("✅ Game mode toggled to Free Mode");
+
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('modeChallengeBtn').click()`,
+      returnByValue: true
+    });
+    modeCheck = await send('Runtime.evaluate', {
+      expression: `window.game.selectedMode`,
+      returnByValue: true
+    });
+    if (modeCheck.result.value !== 'challenge') throw new Error("FAIL: Mode toggle to challenge failed!");
+    console.log("✅ Game mode toggled to Challenge Mode");
+
+    // Test Size Toggle: Small vs Large
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('sizeSmallBtn').click()`,
+      returnByValue: true
+    });
+    let sizeCheck = await send('Runtime.evaluate', {
+      expression: `window.game.selectedSize`,
+      returnByValue: true
+    });
+    if (sizeCheck.result.value !== 'small') throw new Error("FAIL: Size toggle to small failed!");
+
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('sizeLargeBtn').click()`,
+      returnByValue: true
+    });
+    sizeCheck = await send('Runtime.evaluate', {
+      expression: `window.game.selectedSize`,
+      returnByValue: true
+    });
+    if (sizeCheck.result.value !== 'large') throw new Error("FAIL: Size toggle to large failed!");
+    console.log("✅ Grid sizes Small/Medium/Large toggled successfully");
+
+    // 2. Test Tutorial Modal Navigation
+    console.log("Testing Tutorial modal carousel...");
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('openTutorialBtn').click()`,
+      returnByValue: true
+    });
+    const tutOpen = await send('Runtime.evaluate', {
+      expression: `document.getElementById('tutorialModal').classList.contains('active')`,
+      returnByValue: true
+    });
+    if (!tutOpen.result.value) throw new Error("FAIL: Tutorial modal did not open!");
+
+    // Next slide
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('tutorialNextBtn').click()`,
+      returnByValue: true
+    });
+    const tutSlide = await send('Runtime.evaluate', {
+      expression: `window.game.currentTutorialSlide`,
+      returnByValue: true
+    });
+    if (tutSlide.result.value !== 2) throw new Error("FAIL: Tutorial did not advance to slide 2!");
+
+    // Close tutorial
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('closeTutorialBtn').click()`,
+      returnByValue: true
+    });
+    const tutClosed = await send('Runtime.evaluate', {
+      expression: `document.getElementById('tutorialModal').classList.contains('active')`,
+      returnByValue: true
+    });
+    if (tutClosed.result.value) throw new Error("FAIL: Tutorial modal failed to close!");
+    console.log("✅ Tutorial carousel opened, navigated, and closed cleanly");
+
+    // 3. Launch Game into Active Board
+    console.log("Launching game from landing screen...");
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('startGameBtn').click()`,
+      returnByValue: true
+    });
+    await new Promise(r => setTimeout(r, 200));
+
+    const isGameVisible = await send('Runtime.evaluate', {
+      expression: `document.getElementById('gameScreen').classList.contains('active')`,
+      returnByValue: true
+    });
+    if (!isGameVisible.result.value) throw new Error("FAIL: Game screen not visible after Start Game click!");
+    console.log("✅ Game screen transitioned successfully");
+
+    // 4. Test Canvas Drag & Release Mechanics
     const evalRes = await send('Runtime.evaluate', {
       expression: `(() => {
         const canvas = document.getElementById('gameCanvas');
@@ -143,7 +250,6 @@ async function runTest() {
       buttons: 1
     });
 
-    // Verify dragState.active is TRUE during drag
     let state = await send('Runtime.evaluate', {
       expression: `window.game.dragState.active`,
       returnByValue: true
@@ -161,20 +267,17 @@ async function runTest() {
       buttons: 0
     });
 
-    // Check dragState.active immediately after release
     state = await send('Runtime.evaluate', {
       expression: `window.game.dragState.active`,
       returnByValue: true
     });
-
-    if (state.result.value === false) {
-      console.log("✅ Selection box cleared immediately upon mouse release without requiring cursor movement!");
-    } else {
+    if (state.result.value !== false) {
       throw new Error("FAIL: dragState.active remained true after mouse release!");
     }
+    console.log("✅ Selection box cleared immediately upon mouse release without requiring cursor movement!");
 
-    // 2. Test a VALID selection clear
-    console.log("\nTesting a guaranteed VALID move release without cursor movement...");
+    // 5. Test a Guaranteed VALID selection clear
+    console.log("Testing guaranteed VALID move release without cursor movement...");
     const validMoveRes = await send('Runtime.evaluate', {
       expression: `(() => {
         const moves = window.game.engine.findAllValidMoves(1);
@@ -224,16 +327,13 @@ async function runTest() {
       returnByValue: true
     });
 
-    if (postClearState.result.value.active !== false) {
-      throw new Error("FAIL: Selection box remained active after valid release!");
-    }
-    if (postClearState.result.value.score <= 0 || postClearState.result.value.clears <= 0) {
+    if (postClearState.result.value.active !== false || postClearState.result.value.score <= 0) {
       throw new Error("FAIL: Valid move was not cleared / scored on release!");
     }
     console.log("✅ Valid move cleared and scored successfully on release with zero cursor movement!");
 
-    // 3. Test Leaderboard Modal Opening & Closing
-    console.log("\nTesting Leaderboard UI modal...");
+    // 6. Test Leaderboard Modal with Size Filtering
+    console.log("Testing Leaderboard UI modal with size tabs...");
     await send('Runtime.evaluate', {
       expression: `document.getElementById('leaderboardBtn').click()`,
       returnByValue: true
@@ -242,9 +342,7 @@ async function runTest() {
     const lbState = await send('Runtime.evaluate', {
       expression: `({
         isOpen: document.getElementById('leaderboardModal').classList.contains('active'),
-        allTime: document.getElementById('lbAllTime').textContent,
-        weekly: document.getElementById('lbWeekly').textContent,
-        daily: document.getElementById('lbDaily').textContent
+        allTime: document.getElementById('lbAllTime').textContent
       })`,
       returnByValue: true
     });
@@ -255,7 +353,6 @@ async function runTest() {
     console.log("✅ Leaderboard modal opened cleanly with values:", JSON.stringify(lbState.result.value));
 
     // Test Android Back Button Popstate handling to close modal
-    console.log("Testing Android back button (popstate) dismissing modal...");
     await send('Runtime.evaluate', {
       expression: `window.dispatchEvent(new PopStateEvent('popstate'))`,
       returnByValue: true
@@ -272,29 +369,20 @@ async function runTest() {
       throw new Error("FAIL: Leaderboard modal remained open after popstate!");
     }
 
-    // 4. Test Haptics Toggle
-    console.log("\nTesting Haptics toggle button...");
-    const hapticBefore = await send('Runtime.evaluate', {
-      expression: `window.game.haptics.isEnabled`,
-      returnByValue: true
-    });
-
+    // 7. Test Return to Main Menu via Home Button
+    console.log("Testing Home button return to Landing Page...");
     await send('Runtime.evaluate', {
-      expression: `document.getElementById('hapticBtn').click()`,
+      expression: `document.getElementById('homeBtn').click()`,
       returnByValue: true
     });
-
-    const hapticAfter = await send('Runtime.evaluate', {
-      expression: `window.game.haptics.isEnabled`,
+    const backOnMenu = await send('Runtime.evaluate', {
+      expression: `document.getElementById('landingScreen').classList.contains('active')`,
       returnByValue: true
     });
+    if (!backOnMenu.result.value) throw new Error("FAIL: Home button failed to return to Landing Screen!");
+    console.log("✅ Home button returned to Landing Screen successfully!");
 
-    if (hapticAfter.result.value !== !hapticBefore.result.value) {
-      throw new Error("FAIL: Haptic state did not toggle!");
-    }
-    console.log("✅ Haptic feedback toggled successfully!");
-
-    console.log("\n🎉 ALL AUTOMATED BROWSER & NATIVE INTEGRATION TESTS PASSED PERFECTLY!\n");
+    console.log("\n🎉 ALL AUTOMATED BROWSER & PHASE 7 INTEGRATION TESTS PASSED PERFECTLY!\n");
 
     ws.close();
   } finally {

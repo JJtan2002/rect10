@@ -1,26 +1,61 @@
 /**
- * Rect10 Game Controller & Application Coordinator (Phase 5)
+ * Rect10 Game Controller & Application Coordinator (Phase 7)
  * Coordinates:
+ * - Landing Page / Main Menu state machine
+ * - 4-Slide Interactive Visual Tutorial
+ * - Dynamic Grid Sizing: Small (7x10), Medium (9x12), Large (11x15)
+ * - Game Modes: 100s Challenge vs Unlimited Free Play (Zen)
  * - Mathematical Engine & Typed Array 2D Prefix Sums
  * - High-DPI Canvas 2D View & Tile Dissolve Animations
  * - Procedural Web Audio Acoustic Synthesizer
- * - Multi-Tier Persistent Leaderboard (Daily, Weekly, All-Time, History)
+ * - Multi-Tier Persistent Leaderboard (Daily, Weekly, All-Time, History per size)
  * - Mobile Haptics Engine (Web Vibration API)
  * - Screen Wake Lock API
- * - Android Hardware Back Button & Browser Gesture Navigation
+ * - Android Hardware Back Button & Browser History Navigation
  */
+
+const GRID_SIZES = {
+  small: { cols: 7, rows: 10, minMoves: 10 },
+  medium: { cols: 9, rows: 12, minMoves: 15 },
+  large: { cols: 11, rows: 15, minMoves: 20 }
+};
 
 class Rect10Game {
   constructor() {
-    this.engine = new Rect10Engine(11, 15);
+    this.selectedMode = 'challenge'; // 'challenge' | 'free'
+    this.selectedSize = 'large';      // 'small' | 'medium' | 'large'
+    this.activeLbSize = 'large';
+
+    const cfg = GRID_SIZES[this.selectedSize];
+    this.engine = new Rect10Engine(cfg.cols, cfg.rows);
     this.audio = new Rect10Audio();
     this.leaderboard = new Rect10Leaderboard();
     this.haptics = new Rect10Haptics();
 
+    // DOM Elements - Screens
+    this.landingScreen = document.getElementById('landingScreen');
+    this.gameScreen = document.getElementById('gameScreen');
+
+    // DOM Elements - Landing Menu
+    this.modeChallengeBtn = document.getElementById('modeChallengeBtn');
+    this.modeFreeBtn = document.getElementById('modeFreeBtn');
+    this.modeDescription = document.getElementById('modeDescription');
+    this.sizeSmallBtn = document.getElementById('sizeSmallBtn');
+    this.sizeMediumBtn = document.getElementById('sizeMediumBtn');
+    this.sizeLargeBtn = document.getElementById('sizeLargeBtn');
+    this.startGameBtn = document.getElementById('startGameBtn');
+    this.openTutorialBtn = document.getElementById('openTutorialBtn');
+    this.openLeaderboardMenuBtn = document.getElementById('openLeaderboardMenuBtn');
+    this.landingMuteBtn = document.getElementById('landingMuteBtn');
+    this.landingHapticBtn = document.getElementById('landingHapticBtn');
+
     // DOM Elements - HUD
     this.canvas = document.getElementById('gameCanvas');
+    this.boardContainer = document.getElementById('boardContainer');
     this.view = new Rect10View(this.canvas);
-
+    this.homeBtn = document.getElementById('homeBtn');
+    this.gameModeBadge = document.getElementById('gameModeBadge');
+    this.hudTimerLabel = document.getElementById('hudTimerLabel');
     this.timerEl = document.getElementById('hudTimer');
     this.timerBarFill = document.getElementById('timerBarFill');
     this.scoreEl = document.getElementById('hudScore');
@@ -32,16 +67,28 @@ class Rect10Game {
     this.leaderboardBtn = document.getElementById('leaderboardBtn');
     this.hapticBtn = document.getElementById('hapticBtn');
 
+    // DOM Elements - Tutorial Modal
+    this.tutorialModal = document.getElementById('tutorialModal');
+    this.closeTutorialBtn = document.getElementById('closeTutorialBtn');
+    this.tutorialPrevBtn = document.getElementById('tutorialPrevBtn');
+    this.tutorialNextBtn = document.getElementById('tutorialNextBtn');
+    this.tutorialDoneBtn = document.getElementById('tutorialDoneBtn');
+    this.tutorialSlides = Array.from(document.querySelectorAll('.tutorial-slide'));
+    this.tutorialDots = Array.from(document.querySelectorAll('.tutorial-dots .dot'));
+    this.currentTutorialSlide = 1;
+
     // DOM Elements - In-Grid Pause Curtain & Modal
     this.pauseCurtain = document.getElementById('pauseCurtain');
     this.pauseModal = document.getElementById('pauseModal');
     this.resumeBtn = document.getElementById('resumeBtn');
     this.modalRestartBtn = document.getElementById('modalRestartBtn');
+    this.pauseHomeBtn = document.getElementById('pauseHomeBtn');
 
     // DOM Elements - Leaderboard Modal
     this.leaderboardModal = document.getElementById('leaderboardModal');
     this.closeLeaderboardBtn = document.getElementById('closeLeaderboardBtn');
     this.closeLeaderboardActionBtn = document.getElementById('closeLeaderboardActionBtn');
+    this.lbSizeTabs = Array.from(document.querySelectorAll('.lb-size-tab'));
     this.lbAllTime = document.getElementById('lbAllTime');
     this.lbWeekly = document.getElementById('lbWeekly');
     this.lbDaily = document.getElementById('lbDaily');
@@ -52,6 +99,7 @@ class Rect10Game {
     this.allTimeBestBadge = document.getElementById('allTimeBestBadge');
     this.weeklyBestBadge = document.getElementById('weeklyBestBadge');
     this.dailyBestBadge = document.getElementById('dailyBestBadge');
+    this.freeModeNotice = document.getElementById('freeModeNotice');
     this.modalTitle = document.getElementById('modalTitle');
     this.modalScore = document.getElementById('modalScore');
     this.modalRank = document.getElementById('modalRank');
@@ -63,6 +111,7 @@ class Rect10Game {
     this.modalBreakdown = document.getElementById('modalBreakdown');
     this.playAgainBtn = document.getElementById('playAgainBtn');
     this.copyStatsBtn = document.getElementById('copyStatsBtn');
+    this.gameOverHomeBtn = document.getElementById('gameOverHomeBtn');
 
     // Drag selection state (zero-allocation reusable struct)
     this.dragState = {
@@ -81,22 +130,28 @@ class Rect10Game {
     this.lastFrameTime = 0;
     this.wakeLock = null;
 
-    this.highScore = this.leaderboard.getAllTimeBest();
+    this.highScore = this.leaderboard.getAllTimeBest(this.selectedSize);
 
     this.updateControlsUI();
     this.bindEvents();
-    this.updateHUD();
-    this.startNewGame();
     this.startLoop();
   }
 
   updateControlsUI() {
-    this.muteBtn.textContent = this.audio.isMuted ? '🔇' : '🔊';
+    const muteIcon = this.audio.isMuted ? '🔇' : '🔊';
+    this.muteBtn.textContent = muteIcon;
+    this.landingMuteBtn.textContent = muteIcon;
+
     this.hapticBtn.textContent = '📳';
-    if (!this.haptics.isEnabled || !this.haptics.isSupported) {
+    this.landingHapticBtn.textContent = '📳';
+
+    const hapticDisabled = !this.haptics.isEnabled || !this.haptics.isSupported;
+    if (hapticDisabled) {
       this.hapticBtn.classList.add('disabled');
+      this.landingHapticBtn.classList.add('disabled');
     } else {
       this.hapticBtn.classList.remove('disabled');
+      this.landingHapticBtn.classList.remove('disabled');
     }
   }
 
@@ -120,21 +175,71 @@ class Rect10Game {
     if (this.wakeLock) {
       try {
         this.wakeLock.release();
-      } catch (e) {
-        // Ignore errors on release
-      }
+      } catch (e) {}
       this.wakeLock = null;
     }
   }
 
+  // --- Screen Management & Launch ---
+  showMenu() {
+    this.isPlaying = false;
+    this.isPaused = false;
+    this.releaseWakeLock();
+
+    this.gameOverModal.classList.remove('active');
+    this.pauseModal.classList.remove('active');
+    this.leaderboardModal.classList.remove('active');
+    this.tutorialModal.classList.remove('active');
+    this.pauseCurtain.classList.remove('active');
+
+    this.gameScreen.classList.remove('active');
+    this.landingScreen.classList.add('active');
+    this.updateControlsUI();
+  }
+
+  launchGame(mode = this.selectedMode, size = this.selectedSize) {
+    this.selectedMode = mode;
+    this.selectedSize = size;
+    const cfg = GRID_SIZES[this.selectedSize];
+
+    // Reconfigure Engine and View
+    this.engine.setDimensions(cfg.cols, cfg.rows);
+    this.view.setDimensions(cfg.cols, cfg.rows);
+
+    // Update board container aspect ratio class
+    this.boardContainer.className = `board-container size-${this.selectedSize}`;
+
+    // Mode badge
+    if (this.selectedMode === 'free') {
+      this.gameModeBadge.textContent = 'Zen';
+      this.gameModeBadge.className = 'mode-indicator-badge zen';
+      this.hudTimerLabel.textContent = 'Mode';
+      this.timerEl.textContent = '∞';
+      this.timerBarFill.className = 'timer-bar-fill zen';
+    } else {
+      this.gameModeBadge.textContent = '100s';
+      this.gameModeBadge.className = 'mode-indicator-badge';
+      this.hudTimerLabel.textContent = 'Time';
+      this.timerEl.textContent = '100';
+      this.timerBarFill.className = 'timer-bar-fill';
+    }
+
+    // Switch screen visibility
+    this.landingScreen.classList.remove('active');
+    this.gameScreen.classList.add('active');
+
+    this.startNewGame();
+  }
+
   startNewGame() {
-    this.engine.init(null, 20);
+    const cfg = GRID_SIZES[this.selectedSize];
+    this.engine.init(null, cfg.minMoves);
     this.timeLeft = this.ROUND_DURATION_SEC;
     this.isPlaying = true;
     this.isPaused = false;
     this.lastFrameTime = performance.now();
     this.dragState.active = false;
-    this.highScore = this.leaderboard.getAllTimeBest();
+    this.highScore = this.leaderboard.getAllTimeBest(this.selectedSize);
 
     this.gameOverModal.classList.remove('active');
     this.pauseModal.classList.remove('active');
@@ -157,7 +262,6 @@ class Rect10Game {
     this.pauseModal.classList.add('active');
     this.releaseWakeLock();
 
-    // Push dummy history entry so Android back button closes pause modal
     history.pushState({ modal: 'pause' }, '');
   }
 
@@ -170,7 +274,47 @@ class Rect10Game {
     this.requestWakeLock();
   }
 
-  openLeaderboard() {
+  // --- Tutorial Navigation ---
+  openTutorial() {
+    this.haptics.buttonTap();
+    this.audio.playButtonTick();
+    this.setTutorialSlide(1);
+    this.tutorialModal.classList.add('active');
+    history.pushState({ modal: 'tutorial' }, '');
+  }
+
+  closeTutorial() {
+    this.tutorialModal.classList.remove('active');
+  }
+
+  setTutorialSlide(slideIndex) {
+    this.currentTutorialSlide = Math.max(1, Math.min(4, slideIndex));
+    this.tutorialSlides.forEach((slide) => {
+      const idx = parseInt(slide.getAttribute('data-slide'), 10);
+      slide.classList.toggle('active', idx === this.currentTutorialSlide);
+    });
+    this.tutorialDots.forEach((dot) => {
+      const idx = parseInt(dot.getAttribute('data-dot'), 10);
+      dot.classList.toggle('active', idx === this.currentTutorialSlide);
+    });
+
+    if (this.currentTutorialSlide === 1) {
+      this.tutorialPrevBtn.style.display = 'none';
+      this.tutorialNextBtn.style.display = 'block';
+      this.tutorialDoneBtn.style.display = 'none';
+    } else if (this.currentTutorialSlide === 4) {
+      this.tutorialPrevBtn.style.display = 'block';
+      this.tutorialNextBtn.style.display = 'none';
+      this.tutorialDoneBtn.style.display = 'block';
+    } else {
+      this.tutorialPrevBtn.style.display = 'block';
+      this.tutorialNextBtn.style.display = 'block';
+      this.tutorialDoneBtn.style.display = 'none';
+    }
+  }
+
+  // --- Leaderboard Modal & Filtering ---
+  openLeaderboard(size = this.selectedSize) {
     this.haptics.buttonTap();
     this.audio.playButtonTick();
 
@@ -179,14 +323,24 @@ class Rect10Game {
       this.pauseGame();
     }
 
-    // Refresh data
-    this.lbAllTime.textContent = this.leaderboard.getAllTimeBest().toString();
-    this.lbWeekly.textContent = this.leaderboard.getWeeklyBest().toString();
-    this.lbDaily.textContent = this.leaderboard.getTodayBest().toString();
+    this.setLeaderboardSizeTab(size);
+    this.leaderboardModal.classList.add('active');
+    history.pushState({ modal: 'leaderboard' }, '');
+  }
 
-    const history = this.leaderboard.getHistory();
+  setLeaderboardSizeTab(size) {
+    this.activeLbSize = size;
+    this.lbSizeTabs.forEach((tab) => {
+      tab.classList.toggle('active', tab.getAttribute('data-size') === size);
+    });
+
+    this.lbAllTime.textContent = this.leaderboard.getAllTimeBest(size).toString();
+    this.lbWeekly.textContent = this.leaderboard.getWeeklyBest(size).toString();
+    this.lbDaily.textContent = this.leaderboard.getTodayBest(size).toString();
+
+    const history = this.leaderboard.getHistory(size);
     if (history.length === 0) {
-      this.lbHistoryList.innerHTML = '<div class="history-empty">No completed runs recorded yet.</div>';
+      this.lbHistoryList.innerHTML = `<div class="history-empty">No ${size} challenge runs completed yet.</div>`;
     } else {
       this.lbHistoryList.innerHTML = history.map((item) => {
         const d = new Date(item.timestamp);
@@ -202,9 +356,6 @@ class Rect10Game {
         `;
       }).join('');
     }
-
-    this.leaderboardModal.classList.add('active');
-    history.pushState({ modal: 'leaderboard' }, '');
   }
 
   closeLeaderboard() {
@@ -220,6 +371,121 @@ class Rect10Game {
   }
 
   bindEvents() {
+    // --- Landing Screen Selectors ---
+    this.modeChallengeBtn.addEventListener('click', () => {
+      this.selectedMode = 'challenge';
+      this.modeChallengeBtn.classList.add('active');
+      this.modeFreeBtn.classList.remove('active');
+      this.modeDescription.textContent = 'Race against the 100s clock, earn rank badges, and log daily/weekly records.';
+      this.haptics.buttonTap();
+      this.audio.playButtonTick();
+    });
+
+    this.modeFreeBtn.addEventListener('click', () => {
+      this.selectedMode = 'free';
+      this.modeFreeBtn.classList.add('active');
+      this.modeChallengeBtn.classList.remove('active');
+      this.modeDescription.textContent = 'Unlimited time until no moves remain. Perfect for practicing tactics (no high score logging).';
+      this.haptics.buttonTap();
+      this.audio.playButtonTick();
+    });
+
+    const sizeBtns = [
+      { el: this.sizeSmallBtn, size: 'small' },
+      { el: this.sizeMediumBtn, size: 'medium' },
+      { el: this.sizeLargeBtn, size: 'large' }
+    ];
+
+    sizeBtns.forEach(({ el, size }) => {
+      el.addEventListener('click', () => {
+        this.selectedSize = size;
+        sizeBtns.forEach(b => b.el.classList.toggle('active', b.size === size));
+        this.haptics.buttonTap();
+        this.audio.playButtonTick();
+      });
+    });
+
+    this.startGameBtn.addEventListener('click', () => {
+      this.haptics.buttonTap();
+      this.audio.playButtonTick();
+      this.launchGame(this.selectedMode, this.selectedSize);
+    });
+
+    this.openTutorialBtn.addEventListener('click', () => this.openTutorial());
+    this.openLeaderboardMenuBtn.addEventListener('click', () => this.openLeaderboard(this.selectedSize));
+
+    this.landingMuteBtn.addEventListener('click', () => {
+      this.audio.toggleMute();
+      this.updateControlsUI();
+      this.haptics.buttonTap();
+    });
+
+    this.landingHapticBtn.addEventListener('click', () => {
+      this.haptics.toggle();
+      this.updateControlsUI();
+    });
+
+    // --- Tutorial Events ---
+    this.closeTutorialBtn.addEventListener('click', () => {
+      this.haptics.buttonTap();
+      this.audio.playButtonTick();
+      this.closeTutorial();
+    });
+
+    this.tutorialNextBtn.addEventListener('click', () => {
+      this.haptics.buttonTap();
+      this.audio.playButtonTick();
+      this.setTutorialSlide(this.currentTutorialSlide + 1);
+    });
+
+    this.tutorialPrevBtn.addEventListener('click', () => {
+      this.haptics.buttonTap();
+      this.audio.playButtonTick();
+      this.setTutorialSlide(this.currentTutorialSlide - 1);
+    });
+
+    this.tutorialDoneBtn.addEventListener('click', () => {
+      this.haptics.buttonTap();
+      this.audio.playButtonTick();
+      this.closeTutorial();
+    });
+
+    this.tutorialDots.forEach((dot) => {
+      dot.addEventListener('click', () => {
+        const slideIdx = parseInt(dot.getAttribute('data-dot'), 10);
+        this.setTutorialSlide(slideIdx);
+      });
+    });
+
+    // --- In-Game Header & Controls ---
+    this.homeBtn.addEventListener('click', () => {
+      this.haptics.buttonTap();
+      this.audio.playButtonTick();
+      this.showMenu();
+    });
+
+    this.pauseHomeBtn.addEventListener('click', () => {
+      this.haptics.buttonTap();
+      this.audio.playButtonTick();
+      this.showMenu();
+    });
+
+    this.gameOverHomeBtn.addEventListener('click', () => {
+      this.haptics.buttonTap();
+      this.audio.playButtonTick();
+      this.showMenu();
+    });
+
+    this.lbSizeTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const size = tab.getAttribute('data-size');
+        this.setLeaderboardSizeTab(size);
+        this.haptics.buttonTap();
+        this.audio.playButtonTick();
+      });
+    });
+
+    // --- In-Game Canvas Pointer Mechanics ---
     const canvas = this.canvas;
 
     canvas.addEventListener('dragstart', (e) => e.preventDefault());
@@ -276,8 +542,10 @@ class Rect10Game {
           res.pointsAwarded
         );
 
-        if (this.engine.score > this.highScore) {
-          this.highScore = this.engine.score;
+        if (this.selectedMode === 'challenge') {
+          if (this.engine.score > this.highScore) {
+            this.highScore = this.engine.score;
+          }
         }
 
         this.updateHUD();
@@ -288,7 +556,7 @@ class Rect10Game {
       }
     };
 
-    // 1. Pointer Events
+    // Pointer Events
     canvas.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       e.preventDefault();
@@ -306,7 +574,7 @@ class Rect10Game {
     window.addEventListener('pointerup', () => endDrag());
     window.addEventListener('pointercancel', () => endDrag());
 
-    // 2. Direct Mouse Events Fallback
+    // Mouse Fallbacks
     canvas.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return;
       e.preventDefault();
@@ -325,7 +593,7 @@ class Rect10Game {
       if (e.button === 0) endDrag();
     });
 
-    // 3. Direct Touch Events Fallback
+    // Touch Fallbacks
     canvas.addEventListener('touchstart', (e) => {
       if (e.touches.length > 0) {
         startDrag(e.touches[0].clientX, e.touches[0].clientY);
@@ -341,7 +609,7 @@ class Rect10Game {
     window.addEventListener('touchend', () => endDrag());
     window.addEventListener('touchcancel', () => endDrag());
 
-    // UI Buttons
+    // Header buttons
     this.pauseBtn.addEventListener('click', () => {
       this.haptics.buttonTap();
       this.audio.playButtonTick();
@@ -365,8 +633,8 @@ class Rect10Game {
     });
 
     this.muteBtn.addEventListener('click', () => {
-      const muted = this.audio.toggleMute();
-      this.muteBtn.textContent = muted ? '🔇' : '🔊';
+      this.audio.toggleMute();
+      this.updateControlsUI();
       this.haptics.buttonTap();
     });
 
@@ -376,7 +644,7 @@ class Rect10Game {
     });
 
     this.leaderboardBtn.addEventListener('click', () => {
-      this.openLeaderboard();
+      this.openLeaderboard(this.selectedSize);
     });
 
     this.closeLeaderboardBtn.addEventListener('click', () => {
@@ -403,14 +671,15 @@ class Rect10Game {
       this.startNewGame();
     });
 
-    // Copy Results Button
+    // Copy Results
     this.copyStatsBtn.addEventListener('click', () => {
       this.haptics.buttonTap();
       const score = this.engine.score;
       const rank = this.calculateRank(score);
       const b = this.engine.clearSizeBreakdown;
       const multi = (b[4] || 0) + (b[5] || 0) + (b['6+'] || 0);
-      const text = `🎯 Rect10 Puzzle Run: ${score} pts (${rank})\n⏱️ Clears: ${this.engine.clearsCount} | Largest: ${this.engine.largestClear} blocks\n🧩 2c: ${b[2] || 0} | 3c: ${b[3] || 0} | 4c+: ${multi}`;
+      const modeLabel = this.selectedMode === 'free' ? 'Zen Free Play' : '100s Challenge';
+      const text = `🎯 Rect10 [${this.selectedSize.toUpperCase()} | ${modeLabel}]: ${score} pts (${rank})\n⏱️ Clears: ${this.engine.clearsCount} | Largest: ${this.engine.largestClear} blocks\n🧩 2c: ${b[2] || 0} | 3c: ${b[3] || 0} | 4c+: ${multi}`;
       
       if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(() => {
@@ -422,9 +691,11 @@ class Rect10Game {
       }
     });
 
-    // Android Hardware Back Button & Browser History State
+    // Popstate Android Back Button Navigation
     window.addEventListener('popstate', () => {
-      if (this.leaderboardModal.classList.contains('active')) {
+      if (this.tutorialModal.classList.contains('active')) {
+        this.closeTutorial();
+      } else if (this.leaderboardModal.classList.contains('active')) {
         this.closeLeaderboard();
       } else if (this.pauseModal.classList.contains('active')) {
         this.resumeGame();
@@ -439,20 +710,26 @@ class Rect10Game {
     window.addEventListener('keydown', (e) => {
       if (e.code === 'KeyP' || e.code === 'Escape') {
         e.preventDefault();
-        if (this.leaderboardModal.classList.contains('active')) {
+        if (this.tutorialModal.classList.contains('active')) {
+          this.closeTutorial();
+        } else if (this.leaderboardModal.classList.contains('active')) {
           this.closeLeaderboard();
         } else if (this.isPaused) {
           this.resumeGame();
         } else if (this.isPlaying) {
           this.pauseGame();
         }
-      } else if ((e.code === 'Space' || e.code === 'Enter') && !this.isPlaying && !this.leaderboardModal.classList.contains('active')) {
+      } else if ((e.code === 'Space' || e.code === 'Enter') && !this.isPlaying && !this.leaderboardModal.classList.contains('active') && !this.tutorialModal.classList.contains('active')) {
         e.preventDefault();
-        this.startNewGame();
+        if (this.landingScreen.classList.contains('active')) {
+          this.launchGame();
+        } else {
+          this.startNewGame();
+        }
       }
     });
 
-    // Page Visibility & Window Blur Handling
+    // Visibility & Window Blur
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
         this.releaseWakeLock();
@@ -474,21 +751,29 @@ class Rect10Game {
   }
 
   updateHUD() {
-    this.timerEl.textContent = Math.ceil(this.timeLeft).toString();
+    if (this.selectedMode === 'free') {
+      this.timerEl.textContent = '∞';
+    } else {
+      this.timerEl.textContent = Math.ceil(this.timeLeft).toString();
+      const pct = Math.max(0, Math.min(100, (this.timeLeft / this.ROUND_DURATION_SEC) * 100));
+      this.timerBarFill.style.width = `${pct}%`;
+
+      if (this.timeLeft <= 12) {
+        this.timerBarFill.className = 'timer-bar-fill critical';
+      } else if (this.timeLeft <= 30) {
+        this.timerBarFill.className = 'timer-bar-fill warning';
+      } else {
+        this.timerBarFill.className = 'timer-bar-fill';
+      }
+    }
+
     this.scoreEl.textContent = this.engine.score.toString();
     this.movesEl.textContent = this.engine.movesRemaining.toString();
-    this.bestScoreEl.textContent = this.leaderboard.getAllTimeBest().toString();
 
-    // Update Progress Bar
-    const pct = Math.max(0, Math.min(100, (this.timeLeft / this.ROUND_DURATION_SEC) * 100));
-    this.timerBarFill.style.width = `${pct}%`;
-
-    if (this.timeLeft <= 12) {
-      this.timerBarFill.className = 'timer-bar-fill critical';
-    } else if (this.timeLeft <= 30) {
-      this.timerBarFill.className = 'timer-bar-fill warning';
+    if (this.selectedMode === 'free') {
+      this.bestScoreEl.textContent = '—';
     } else {
-      this.timerBarFill.className = 'timer-bar-fill';
+      this.bestScoreEl.textContent = this.leaderboard.getAllTimeBest(this.selectedSize).toString();
     }
   }
 
@@ -525,39 +810,49 @@ class Rect10Game {
     const multiCell = (b[4] || 0) + (b[5] || 0) + (b['6+'] || 0);
     this.modalBreakdown.textContent = `2c: ${b[2] || 0} | 3c: ${b[3] || 0} | 4c+: ${multiCell}`;
 
-    // Record score into multi-tier leaderboard
-    const milestones = this.leaderboard.recordScore(score, {
-      rank,
-      clearsCount: this.engine.clearsCount,
-      cellsClearedTotal: this.engine.cellsClearedTotal,
-      largestClear: this.engine.largestClear,
-      paceCPM: cpm
-    });
-
     this.allTimeBestBadge.classList.remove('active');
     this.weeklyBestBadge.classList.remove('active');
     this.dailyBestBadge.classList.remove('active');
 
-    if (milestones.isNewAllTime && score > 0) {
-      this.allTimeBestBadge.classList.add('active');
-      this.audio.playNewRecordFanfare();
-      this.haptics.newRecord();
-    } else if (milestones.isNewWeekly && score > 0) {
-      this.weeklyBestBadge.classList.add('active');
-      this.audio.playNewRecordFanfare();
-      this.haptics.newRecord();
-    } else if (milestones.isNewDaily && score > 0) {
-      this.dailyBestBadge.classList.add('active');
-      this.audio.playNewRecordFanfare();
-      this.haptics.newRecord();
-    } else {
+    if (this.selectedMode === 'free') {
+      // Free Mode: do not log high scores
+      this.freeModeNotice.style.display = 'block';
       this.audio.playGameOverTone();
       this.haptics.gameOver();
+    } else {
+      // Challenge Mode: record score to leaderboard for current size
+      this.freeModeNotice.style.display = 'none';
+      const milestones = this.leaderboard.recordScore(score, {
+        mode: 'challenge',
+        size: this.selectedSize,
+        rank,
+        clearsCount: this.engine.clearsCount,
+        cellsClearedTotal: this.engine.cellsClearedTotal,
+        largestClear: this.engine.largestClear,
+        paceCPM: cpm
+      });
+
+      if (milestones.isNewAllTime && score > 0) {
+        this.allTimeBestBadge.classList.add('active');
+        this.audio.playNewRecordFanfare();
+        this.haptics.newRecord();
+      } else if (milestones.isNewWeekly && score > 0) {
+        this.weeklyBestBadge.classList.add('active');
+        this.audio.playNewRecordFanfare();
+        this.haptics.newRecord();
+      } else if (milestones.isNewDaily && score > 0) {
+        this.dailyBestBadge.classList.add('active');
+        this.audio.playNewRecordFanfare();
+        this.haptics.newRecord();
+      } else {
+        this.audio.playGameOverTone();
+        this.haptics.gameOver();
+      }
+
+      this.highScore = this.leaderboard.getAllTimeBest(this.selectedSize);
     }
 
-    this.highScore = this.leaderboard.getAllTimeBest();
     this.updateHUD();
-
     this.gameOverModal.classList.add('active');
     history.pushState({ modal: 'gameover' }, '');
   }
@@ -568,17 +863,21 @@ class Rect10Game {
       this.lastFrameTime = currentTime;
 
       if (this.isPlaying && !this.isPaused) {
-        this.timeLeft -= deltaSec;
-        if (this.timeLeft <= 0) {
-          this.timeLeft = 0;
-          this.updateHUD();
-          this.endGame("Time's Up!");
-        } else {
-          this.updateHUD();
+        if (this.selectedMode === 'challenge') {
+          this.timeLeft -= deltaSec;
+          if (this.timeLeft <= 0) {
+            this.timeLeft = 0;
+            this.updateHUD();
+            this.endGame("Time's Up!");
+          } else {
+            this.updateHUD();
+          }
         }
       }
 
-      this.view.render(this.engine, this.dragState);
+      if (this.gameScreen.classList.contains('active')) {
+        this.view.render(this.engine, this.dragState);
+      }
 
       requestAnimationFrame(loop);
     };

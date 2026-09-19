@@ -127,6 +127,26 @@ console.log('=== TEST SUITE: Rect10 Engine (11x15 Portrait Layout) ===\n');
   assert(engine.movesRemaining === 0, 'Deadlock detected on impossible 11x15 board');
 }
 
+// Test 6: Small Grid (7x10) Configuration & Move Generation
+{
+  const engine = new Rect10Engine();
+  engine.setDimensions(7, 10);
+  assert(engine.COLS === 7 && engine.ROWS === 10, 'Small grid dimensions 7x10 configured');
+  assert(engine.grid.length === 70, 'Small grid has 70 cells');
+  engine.init();
+  assert(engine.movesRemaining >= 10, `Small board has >= 10 initial moves (got ${engine.movesRemaining})`);
+}
+
+// Test 7: Medium Grid (9x12) Configuration & Move Generation
+{
+  const engine = new Rect10Engine();
+  engine.setDimensions(9, 12);
+  assert(engine.COLS === 9 && engine.ROWS === 12, 'Medium grid dimensions 9x12 configured');
+  assert(engine.grid.length === 108, 'Medium grid has 108 cells');
+  engine.init();
+  assert(engine.movesRemaining >= 15, `Medium board has >= 15 initial moves (got ${engine.movesRemaining})`);
+}
+
 // Benchmarks on 11x15
 console.log('\n=== BENCHMARKS: 11x15 Hot Path Latencies ===');
 {

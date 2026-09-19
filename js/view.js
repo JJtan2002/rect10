@@ -48,6 +48,14 @@ class Rect10View {
     ro.observe(this.canvas.parentElement);
   }
 
+  setDimensions(cols, rows) {
+    this.cols = cols;
+    this.rows = rows;
+    this.floatingTexts = [];
+    this.dissolvingTiles = [];
+    this.resize();
+  }
+
   resize() {
     const parent = this.canvas.parentElement;
     const parentW = parent.clientWidth;

@@ -4,22 +4,97 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#090d16">
-  <meta name="description" content="Rect10: Fast-paced 11x15 mobile grid puzzle game where you select rectangular regions summing to 10.">
+  <meta name="description" content="Rect10: Fast-paced mobile grid puzzle game where you select rectangular regions summing to 10.">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Rect10 — 11x15 Sum Puzzle</title>
+  <title>Rect10 — 10-Sum Puzzle</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=1.0.6">
+  <link rel="stylesheet" href="style.css?v=1.0.7">
 </head>
 <body>
-  <div class="app-container">
+  <!-- Landing Screen / Main Menu -->
+  <div id="landingScreen" class="screen landing-screen active">
+    <div class="landing-content">
+      <!-- Title & Branding -->
+      <div class="brand-block">
+        <div class="logo-badge">= 10</div>
+        <h1 class="landing-title">RECT10</h1>
+        <p class="landing-subtitle">Tactile Mental Addition Puzzle</p>
+      </div>
+
+      <!-- Mode Selector -->
+      <div class="selection-card">
+        <span class="selection-label">GAME MODE</span>
+        <div class="pill-group">
+          <button id="modeChallengeBtn" class="toggle-pill active" data-mode="challenge">
+            <span class="pill-icon">⚡</span>
+            <div class="pill-text">
+              <span class="pill-title">Challenge</span>
+              <span class="pill-sub">100s Time Attack</span>
+            </div>
+          </button>
+          <button id="modeFreeBtn" class="toggle-pill" data-mode="free">
+            <span class="pill-icon">🧘</span>
+            <div class="pill-text">
+              <span class="pill-title">Free Play</span>
+              <span class="pill-sub">Untimed Zen</span>
+            </div>
+          </button>
+        </div>
+        <div id="modeDescription" class="mode-help-text">
+          Race against the 100s clock, earn rank badges, and log daily/weekly records.
+        </div>
+      </div>
+
+      <!-- Grid Size Selector -->
+      <div class="selection-card">
+        <span class="selection-label">BOARD SIZE</span>
+        <div class="pill-group size-group">
+          <button id="sizeSmallBtn" class="toggle-pill size-pill" data-size="small">
+            <span class="size-title">Small</span>
+            <span class="size-dim">7 × 10</span>
+          </button>
+          <button id="sizeMediumBtn" class="toggle-pill size-pill" data-size="medium">
+            <span class="size-title">Medium</span>
+            <span class="size-dim">9 × 12</span>
+          </button>
+          <button id="sizeLargeBtn" class="toggle-pill size-pill active" data-size="large">
+            <span class="size-title">Large</span>
+            <span class="size-dim">11 × 15</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Primary & Secondary Menu Actions -->
+      <div class="landing-actions">
+        <button id="startGameBtn" class="action-btn play-btn">▶ Play Game</button>
+        <div class="menu-secondary-row">
+          <button id="openTutorialBtn" class="menu-sub-btn">📖 How to Play</button>
+          <button id="openLeaderboardMenuBtn" class="menu-sub-btn">🏆 Records</button>
+        </div>
+      </div>
+
+      <!-- Footer Preferences -->
+      <div class="landing-footer">
+        <button id="landingMuteBtn" class="btn-icon" aria-label="Toggle Sound">🔊</button>
+        <button id="landingHapticBtn" class="btn-icon" aria-label="Toggle Haptics">📳</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Play Screen -->
+  <div id="gameScreen" class="app-container">
     <!-- Header -->
     <header class="header">
       <div class="title-bar">
-        <h1 class="game-title">RECT10</h1>
+        <div class="title-group">
+          <button id="homeBtn" class="btn-icon" aria-label="Return to Main Menu">🏠</button>
+          <h1 class="game-title">RECT10</h1>
+          <span id="gameModeBadge" class="mode-indicator-badge">100s</span>
+        </div>
         <div class="header-actions">
           <button id="leaderboardBtn" class="btn-icon" aria-label="View Leaderboard & Records">🏆</button>
           <button id="hapticBtn" class="btn-icon" aria-label="Toggle Haptics">📳</button>
@@ -31,7 +106,7 @@
       <!-- HUD Cards -->
       <div class="hud-grid">
         <div class="hud-card">
-          <span class="hud-label">Time</span>
+          <span id="hudTimerLabel" class="hud-label">Time</span>
           <span id="hudTimer" class="hud-value timer">100</span>
         </div>
         <div class="hud-card">
@@ -49,13 +124,13 @@
       </div>
 
       <!-- Timer Progress Bar -->
-      <div class="timer-bar-track">
+      <div id="timerTrack" class="timer-bar-track">
         <div id="timerBarFill" class="timer-bar-fill"></div>
       </div>
     </header>
 
-    <!-- Main Canvas Viewport (11x15) -->
-    <main class="board-container">
+    <!-- Main Canvas Viewport -->
+    <main id="boardContainer" class="board-container size-large">
       <canvas id="gameCanvas" draggable="false"></canvas>
 
       <!-- In-Grid Pause Curtain (Prevents studying board while paused) -->
@@ -71,6 +146,92 @@
     </footer>
   </div>
 
+  <!-- Interactive Tutorial Modal (4 Slides) -->
+  <div id="tutorialModal" class="modal-overlay">
+    <div class="modal-content tutorial-content">
+      <div class="tutorial-header">
+        <h2 class="modal-title">📖 How to Play</h2>
+        <button id="closeTutorialBtn" class="btn-close" aria-label="Close">✕</button>
+      </div>
+
+      <!-- Slide 1: Core Goal -->
+      <div class="tutorial-slide active" data-slide="1">
+        <div class="tutorial-card">
+          <div class="tutorial-visual-grid">
+            <div class="t-cell">2</div>
+            <div class="t-cell active-demo">7</div>
+            <div class="t-cell active-demo">3</div>
+            <div class="t-cell">5</div>
+          </div>
+          <h3 class="tutorial-step-title">1. Sum to Exactly 10</h3>
+          <p class="tutorial-step-body">
+            Drag a rectangular box around numbers that add up to <strong>exactly 10</strong> (e.g. 7+3, 6+4, or 1+2+3+4). Active numbers in valid boxes clear and score <strong>+10 pts</strong> each!
+          </p>
+        </div>
+      </div>
+
+      <!-- Slide 2: Mental Addition -->
+      <div class="tutorial-slide" data-slide="2">
+        <div class="tutorial-card">
+          <div class="tutorial-visual-grid">
+            <div class="t-box neutral-box">
+              <span>No Hints</span>
+            </div>
+          </div>
+          <h3 class="tutorial-step-title">2. Pure Mental Math</h3>
+          <p class="tutorial-step-body">
+            The selection outline is strictly <strong>neutral</strong>—no sum badges, hints, or green/red lights. Calculate in your head before releasing! Incorrect sums dismiss safely with zero penalty.
+          </p>
+        </div>
+      </div>
+
+      <!-- Slide 3: Tunneling -->
+      <div class="tutorial-slide" data-slide="3">
+        <div class="tutorial-card">
+          <div class="tutorial-visual-grid">
+            <div class="t-cell active-demo">4</div>
+            <div class="t-cell empty-demo">0</div>
+            <div class="t-cell empty-demo">0</div>
+            <div class="t-cell active-demo">6</div>
+          </div>
+          <h3 class="tutorial-step-title">3. Empty Space Tunneling</h3>
+          <p class="tutorial-step-body">
+            Cleared cells become empty <strong>0 tiles</strong>. They cost zero to your sum, letting you tunnel across cleared areas to connect distant numbers (e.g. 4 + [0] + 6 = 10)!
+          </p>
+        </div>
+      </div>
+
+      <!-- Slide 4: Modes & Sizes -->
+      <div class="tutorial-slide" data-slide="4">
+        <div class="tutorial-card">
+          <div class="mode-showcase">
+            <div class="mode-pill-mini">⚡ 100s Challenge</div>
+            <div class="mode-pill-mini zen">🧘 Free Zen Mode</div>
+          </div>
+          <h3 class="tutorial-step-title">4. Modes & Board Sizes</h3>
+          <p class="tutorial-step-body">
+            Race the clock in <strong>100s Challenge</strong> to earn rank titles and set daily records. Relax in <strong>Free Mode</strong> to practice untimed tactics. Choose between <strong>Small, Medium, and Large</strong> boards anytime!
+          </p>
+        </div>
+      </div>
+
+      <!-- Slide Dots -->
+      <div class="tutorial-dots">
+        <span class="dot active" data-dot="1"></span>
+        <span class="dot" data-dot="2"></span>
+        <span class="dot" data-dot="3"></span>
+        <span class="dot" data-dot="4"></span>
+      </div>
+
+      <!-- Carousel Controls -->
+      <div class="modal-actions-row">
+        <button id="tutorialPrevBtn" class="action-btn secondary" style="display: none;">Back</button>
+        <button id="tutorialNextBtn" class="action-btn">Next</button>
+        <button id="tutorialDoneBtn" class="action-btn" style="display: none;">Let's Play!</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Pause Modal -->
   <div id="pauseModal" class="modal-overlay">
     <div class="modal-content">
@@ -79,6 +240,7 @@
       <div class="modal-actions-col">
         <button id="resumeBtn" class="action-btn">Resume Game</button>
         <button id="modalRestartBtn" class="action-btn secondary">Restart Round</button>
+        <button id="pauseHomeBtn" class="action-btn secondary">Main Menu</button>
       </div>
     </div>
   </div>
@@ -89,6 +251,13 @@
       <div class="leaderboard-header">
         <h2 class="modal-title">🏆 Records</h2>
         <button id="closeLeaderboardBtn" class="btn-close" aria-label="Close">✕</button>
+      </div>
+
+      <!-- Size Filter Pills in Leaderboard -->
+      <div class="lb-size-tabs">
+        <button id="lbSizeSmallBtn" class="lb-size-tab" data-size="small">Small</button>
+        <button id="lbSizeMediumBtn" class="lb-size-tab" data-size="medium">Medium</button>
+        <button id="lbSizeLargeBtn" class="lb-size-tab active" data-size="large">Large</button>
       </div>
 
       <!-- Record Tier Cards -->
@@ -109,7 +278,7 @@
 
       <!-- Run History List -->
       <div class="history-section">
-        <h3 class="history-title">Recent Runs</h3>
+        <h3 class="history-title">Recent Challenge Runs</h3>
         <div id="lbHistoryList" class="history-list">
           <div class="history-empty">No games completed yet.</div>
         </div>
@@ -130,6 +299,11 @@
         <div id="dailyBestBadge" class="milestone-badge daily">📅 TODAY'S BEST!</div>
       </div>
       <h2 id="modalTitle" class="modal-title">Time's Up!</h2>
+
+      <!-- Free Mode Banner (Shown only in Free Mode) -->
+      <div id="freeModeNotice" class="free-mode-notice" style="display: none;">
+        🧘 Free Mode Practice — Scores are not logged to Leaderboard
+      </div>
 
       <div class="modal-score-banner">
         <div class="modal-score-label">Final Score</div>
@@ -167,25 +341,24 @@
       <div class="modal-actions-col">
         <button id="playAgainBtn" class="action-btn">Play Again</button>
         <button id="copyStatsBtn" class="action-btn secondary">📋 Copy Result</button>
+        <button id="gameOverHomeBtn" class="action-btn secondary">Main Menu</button>
       </div>
     </div>
   </div>
 
   <!-- Scripts in dependency order (with cache-busting) -->
-  <script src="js/engine.js?v=1.0.6"></script>
-  <script src="js/view.js?v=1.0.6"></script>
-  <script src="js/audio.js?v=1.0.6"></script>
-  <script src="js/leaderboard.js?v=1.0.6"></script>
-  <script src="js/haptics.js?v=1.0.6"></script>
-  <script src="js/game.js?v=1.0.6"></script>
+  <script src="js/engine.js?v=1.0.7"></script>
+  <script src="js/view.js?v=1.0.7"></script>
+  <script src="js/audio.js?v=1.0.7"></script>
+  <script src="js/leaderboard.js?v=1.0.7"></script>
+  <script src="js/haptics.js?v=1.0.7"></script>
+  <script src="js/game.js?v=1.0.7"></script>
 
   <!-- Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => {
-          // SW registration skipped in non-http/https environments
-        });
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
       });
     }
   </script>

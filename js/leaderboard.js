@@ -1,11 +1,11 @@
 /**
- * Rect10 Leaderboard & Local Score Persistence Engine
+ * Rect10 Leaderboard & Local Score Persistence Engine (Phase 7)
  * Supports:
- * - All-Time High Score
- * - Weekly Best (partitioned by ISO week e.g. 2026-W38, resets Mondays)
- * - Daily Best (partitioned by local calendar date YYYY-MM-DD, resets at midnight)
- * - Recent Run History ledger (last 10 completed games)
- * - Legacy migration from rect10_high_score
+ * - Multi-Tier Tracking (All-Time, Weekly ISO-week, Daily calendar date)
+ * - Dynamic Grid Sizes: 'small' (7x10), 'medium' (9x12), 'large' (11x15)
+ * - Game Mode Policy: Only 'challenge' mode records scores. 'free' mode bypasses recording.
+ * - Run History ledger (last 10 completed games per size)
+ * - Backward-compatible migration from legacy schemas
  */
 
 class Rect10Leaderboard {
@@ -36,12 +36,22 @@ class Rect10Leaderboard {
     return `${new Date(firstThursday).getFullYear()}-W${Rect10Leaderboard.pad(weekNumber)}`;
   }
 
-  loadData() {
-    const defaultData = {
+  createEmptySizeData() {
+    return {
       allTime: 0,
       daily: {},
       weekly: {},
       history: []
+    };
+  }
+
+  loadData() {
+    const defaultData = {
+      sizes: {
+        small: this.createEmptySizeData(),
+        medium: this.createEmptySizeData(),
+        large: this.createEmptySizeData()
+      }
     };
 
     try {
@@ -50,12 +60,26 @@ class Rect10Leaderboard {
       const raw = localStorage.getItem(this.storageKey);
       if (raw) {
         const parsed = JSON.parse(raw);
-        return {
-          allTime: typeof parsed.allTime === 'number' ? parsed.allTime : 0,
-          daily: typeof parsed.daily === 'object' && parsed.daily ? parsed.daily : {},
-          weekly: typeof parsed.weekly === 'object' && parsed.weekly ? parsed.weekly : {},
-          history: Array.isArray(parsed.history) ? parsed.history : []
-        };
+        if (parsed.sizes) {
+          // Schema with sizes already present
+          return {
+            sizes: {
+              small: parsed.sizes.small || this.createEmptySizeData(),
+              medium: parsed.sizes.medium || this.createEmptySizeData(),
+              large: parsed.sizes.large || this.createEmptySizeData()
+            }
+          };
+        } else if (typeof parsed.allTime === 'number') {
+          // Migration from Phase 5 single-size schema (which was large 11x15)
+          defaultData.sizes.large = {
+            allTime: parsed.allTime || 0,
+            daily: parsed.daily || {},
+            weekly: parsed.weekly || {},
+            history: Array.isArray(parsed.history) ? parsed.history : []
+          };
+          this.saveData(defaultData);
+          return defaultData;
+        }
       }
 
       // Check legacy single-scalar score for backward compatibility
@@ -63,7 +87,7 @@ class Rect10Leaderboard {
       if (legacyScore) {
         const parsedLegacy = parseInt(legacyScore, 10);
         if (!isNaN(parsedLegacy) && parsedLegacy > 0) {
-          defaultData.allTime = parsedLegacy;
+          defaultData.sizes.large.allTime = parsedLegacy;
           this.saveData(defaultData);
         }
       }
@@ -79,67 +103,104 @@ class Rect10Leaderboard {
       if (typeof localStorage === 'undefined') return;
       localStorage.setItem(this.storageKey, JSON.stringify(data));
       // Keep legacy scalar in sync for backward compatibility
-      localStorage.setItem('rect10_high_score', (data.allTime || 0).toString());
+      const maxScore = Math.max(
+        data.sizes.small.allTime || 0,
+        data.sizes.medium.allTime || 0,
+        data.sizes.large.allTime || 0
+      );
+      localStorage.setItem('rect10_high_score', maxScore.toString());
     } catch (e) {
       console.warn('Rect10Leaderboard: Unable to save to localStorage:', e);
     }
   }
 
-  getTodayBest(date = new Date()) {
+  getSizeBucket(size = 'large') {
+    const key = (size || 'large').toLowerCase();
+    if (!this.data.sizes[key]) {
+      this.data.sizes[key] = this.createEmptySizeData();
+    }
+    return this.data.sizes[key];
+  }
+
+  getTodayBest(size = 'large', date = new Date()) {
+    const bucket = this.getSizeBucket(size);
     const key = Rect10Leaderboard.getISODateKey(date);
-    return this.data.daily[key] || 0;
+    return bucket.daily[key] || 0;
   }
 
-  getWeeklyBest(date = new Date()) {
+  getWeeklyBest(size = 'large', date = new Date()) {
+    const bucket = this.getSizeBucket(size);
     const key = Rect10Leaderboard.getISOWeekKey(date);
-    return this.data.weekly[key] || 0;
+    return bucket.weekly[key] || 0;
   }
 
-  getAllTimeBest() {
-    return this.data.allTime || 0;
+  getAllTimeBest(size = 'large') {
+    const bucket = this.getSizeBucket(size);
+    return bucket.allTime || 0;
   }
 
-  getHistory() {
-    return this.data.history || [];
+  getHistory(size = 'large') {
+    const bucket = this.getSizeBucket(size);
+    return bucket.history || [];
   }
 
   /**
-   * Records a completed round score and updates daily/weekly/all-time milestones.
+   * Records a completed round score.
+   * Free Mode explicitly bypasses recording.
    * @param {number} score
-   * @param {Object} details - { rank, clearsCount, cellsClearedTotal, largestClear, paceCPM, clearBreakdown }
+   * @param {Object} details - { mode, size, rank, clearsCount, cellsClearedTotal, largestClear, paceCPM }
    * @param {Date} [now]
-   * @returns {Object} Milestone flags { isNewAllTime, isNewWeekly, isNewDaily, allTime, weekly, daily }
+   * @returns {Object} Milestone flags { isNewAllTime, isNewWeekly, isNewDaily, allTime, weekly, daily, isFreeMode }
    */
   recordScore(score, details = {}, now = new Date()) {
+    const size = (details.size || 'large').toLowerCase();
+    const mode = (details.mode || 'challenge').toLowerCase();
+    const bucket = this.getSizeBucket(size);
+
+    // Free Mode does NOT log scores to leaderboards
+    if (mode === 'free') {
+      return {
+        isNewAllTime: false,
+        isNewWeekly: false,
+        isNewDaily: false,
+        allTime: this.getAllTimeBest(size),
+        weekly: this.getWeeklyBest(size, now),
+        daily: this.getTodayBest(size, now),
+        isFreeMode: true
+      };
+    }
+
     const numScore = Math.max(0, Math.floor(score || 0));
     const dayKey = Rect10Leaderboard.getISODateKey(now);
     const weekKey = Rect10Leaderboard.getISOWeekKey(now);
 
-    const prevAllTime = this.getAllTimeBest();
-    const prevWeekly = this.getWeeklyBest(now);
-    const prevDaily = this.getTodayBest(now);
+    const prevAllTime = this.getAllTimeBest(size);
+    const prevWeekly = this.getWeeklyBest(size, now);
+    const prevDaily = this.getTodayBest(size, now);
 
     const isNewAllTime = numScore > prevAllTime;
     const isNewWeekly = numScore > prevWeekly;
     const isNewDaily = numScore > prevDaily;
 
     if (isNewAllTime) {
-      this.data.allTime = numScore;
+      bucket.allTime = numScore;
     }
 
     if (isNewWeekly) {
-      this.data.weekly[weekKey] = numScore;
+      bucket.weekly[weekKey] = numScore;
     }
 
     if (isNewDaily) {
-      this.data.daily[dayKey] = numScore;
+      bucket.daily[dayKey] = numScore;
     }
 
-    // Record into history ledger (capped at last 10 entries)
+    // Record into history ledger (capped at last 10 entries per size)
     const runRecord = {
       id: `run_${Date.now()}`,
       timestamp: now.toISOString(),
       score: numScore,
+      mode: 'challenge',
+      size: size,
       rank: details.rank || 'Novice',
       clears: details.clearsCount || 0,
       cells: details.cellsClearedTotal || 0,
@@ -147,13 +208,13 @@ class Rect10Leaderboard {
       pace: details.paceCPM || '0.0'
     };
 
-    this.data.history.unshift(runRecord);
-    if (this.data.history.length > 10) {
-      this.data.history = this.data.history.slice(0, 10);
+    bucket.history.unshift(runRecord);
+    if (bucket.history.length > 10) {
+      bucket.history = bucket.history.slice(0, 10);
     }
 
-    // Clean up daily/weekly records older than 60 days to prevent bloat
-    this.pruneOldRecords(now);
+    // Clean up daily records older than 60 days to prevent bloat
+    this.pruneOldRecords(bucket, now);
 
     this.saveData();
 
@@ -161,29 +222,31 @@ class Rect10Leaderboard {
       isNewAllTime,
       isNewWeekly,
       isNewDaily,
-      allTime: this.getAllTimeBest(),
-      weekly: this.getWeeklyBest(now),
-      daily: this.getTodayBest(now)
+      allTime: this.getAllTimeBest(size),
+      weekly: this.getWeeklyBest(size, now),
+      daily: this.getTodayBest(size, now),
+      isFreeMode: false
     };
   }
 
-  pruneOldRecords(now = new Date()) {
+  pruneOldRecords(bucket, now = new Date()) {
     const cutoff = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
     const cutoffDay = Rect10Leaderboard.getISODateKey(cutoff);
 
-    for (const key of Object.keys(this.data.daily)) {
+    for (const key of Object.keys(bucket.daily)) {
       if (key < cutoffDay) {
-        delete this.data.daily[key];
+        delete bucket.daily[key];
       }
     }
   }
 
   clearAll() {
     this.data = {
-      allTime: 0,
-      daily: {},
-      weekly: {},
-      history: []
+      sizes: {
+        small: this.createEmptySizeData(),
+        medium: this.createEmptySizeData(),
+        large: this.createEmptySizeData()
+      }
     };
     this.saveData();
   }
