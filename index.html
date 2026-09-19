@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#090d16">
+  <meta name="description" content="Rect10: Fast-paced 11x15 mobile grid puzzle game where you select rectangular regions summing to 10.">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Rect10 — 11x15 Sum Puzzle</title>
+  <link rel="stylesheet" href="style.css?v=1.0.3">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="title-bar">
+        <h1 class="game-title">RECT10</h1>
+        <div class="header-actions">
+          <button id="pauseBtn" class="btn-icon" aria-label="Pause Game">⏸️</button>
+          <button id="muteBtn" class="btn-icon" aria-label="Toggle Sound">🔊</button>
+        </div>
+      </div>
+
+      <!-- HUD Cards -->
+      <div class="hud-grid">
+        <div class="hud-card">
+          <span class="hud-label">Time</span>
+          <span id="hudTimer" class="hud-value timer">100</span>
+        </div>
+        <div class="hud-card">
+          <span class="hud-label">Score</span>
+          <span id="hudScore" class="hud-value">0</span>
+        </div>
+        <div class="hud-card">
+          <span class="hud-label">Moves</span>
+          <span id="hudMoves" class="hud-value moves">0</span>
+        </div>
+        <div class="hud-card">
+          <span class="hud-label">Best</span>
+          <span id="hudBestScore" class="hud-value">0</span>
+        </div>
+      </div>
+
+      <!-- Timer Progress Bar -->
+      <div class="timer-bar-track">
+        <div id="timerBarFill" class="timer-bar-fill"></div>
+      </div>
+    </header>
+
+    <!-- Main Canvas Viewport (11x15) -->
+    <main class="board-container">
+      <canvas id="gameCanvas" draggable="false"></canvas>
+
+      <!-- In-Grid Pause Curtain (Prevents studying board while paused) -->
+      <div id="pauseCurtain" class="pause-curtain">
+        <div class="pause-badge">GAME PAUSED</div>
+        <div class="pause-subtext">Tap Resume to Continue</div>
+      </div>
+    </main>
+
+    <!-- Bottom Controls -->
+    <footer class="controls-bar">
+      <button id="restartBtn" class="action-btn secondary">New Board</button>
+    </footer>
+  </div>
+
+  <!-- Pause Modal -->
+  <div id="pauseModal" class="modal-overlay">
+    <div class="modal-content">
+      <h2 class="modal-title">Paused</h2>
+      <p class="modal-subtitle">Clock is stopped. The board is concealed.</p>
+      <div class="modal-actions-col">
+        <button id="resumeBtn" class="action-btn">Resume Game</button>
+        <button id="modalRestartBtn" class="action-btn secondary">Restart Round</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over Modal with Full Round Analytics -->
+  <div id="gameOverModal" class="modal-overlay">
+    <div class="modal-content">
+      <div id="newBestBadge" class="new-best-badge">NEW RECORD!</div>
+      <h2 id="modalTitle" class="modal-title">Time's Up!</h2>
+
+      <div class="modal-score-banner">
+        <div class="modal-score-label">Final Score</div>
+        <div id="modalScore" class="modal-score-num">0</div>
+        <div id="modalRank" class="modal-rank-badge">Tactician</div>
+      </div>
+
+      <div class="modal-stats-list">
+        <div class="modal-stat-row">
+          <span>Clears Completed</span>
+          <span id="modalClears">0</span>
+        </div>
+        <div class="modal-stat-row">
+          <span>Total Blocks Cleared</span>
+          <span id="modalCells">0</span>
+        </div>
+        <div class="modal-stat-row">
+          <span>Average Clear Size</span>
+          <span id="modalAvgSize">0.0 cells</span>
+        </div>
+        <div class="modal-stat-row">
+          <span>Largest Single Clear</span>
+          <span id="modalLargestClear">0 blocks</span>
+        </div>
+        <div class="modal-stat-row">
+          <span>Pace (Clears / Min)</span>
+          <span id="modalPace">0.0 CPM</span>
+        </div>
+        <div class="modal-stat-row breakdown-row">
+          <span>Clear Breakdown</span>
+          <span id="modalBreakdown">2c: 0 | 3c: 0 | 4c+: 0</span>
+        </div>
+      </div>
+
+      <div class="modal-actions-col">
+        <button id="playAgainBtn" class="action-btn">Play Again</button>
+        <button id="copyStatsBtn" class="action-btn secondary">📋 Copy Result</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts in dependency order (with cache-busting) -->
+  <script src="js/engine.js?v=1.0.5"></script>
+  <script src="js/view.js?v=1.0.5"></script>
+  <script src="js/audio.js?v=1.0.5"></script>
+  <script src="js/game.js?v=1.0.5"></script>
+</body>
+</html>

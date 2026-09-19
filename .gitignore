@@ -1,0 +1,22 @@
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node & Dependencies
+node_modules/
+package-lock.json
+
+# Build & Mobile Artifacts
+dist/
+build/
+.gradle/
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# Logs & Temporary Files
+*.log
+npm-debug.log*
+.system_generated/

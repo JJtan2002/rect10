@@ -1,0 +1,23 @@
+{
+  "name": "rect10",
+  "version": "1.0.0",
+  "description": "Fast-paced mobile 11x15 grid puzzle game where you select rectangular regions summing to 10.",
+  "main": "js/game.js",
+  "scripts": {
+    "test": "node tests/test_engine.js && node tests/test_click_release.js",
+    "test:unit": "node tests/test_engine.js",
+    "test:browser": "node tests/test_click_release.js",
+    "serve": "python -m http.server 8080"
+  },
+  "keywords": [
+    "puzzle",
+    "game",
+    "math",
+    "canvas",
+    "web-audio",
+    "zero-dependency",
+    "android"
+  ],
+  "author": "JJtan2002",
+  "license": "MIT"
+}
