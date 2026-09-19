@@ -377,7 +377,8 @@ html, body {
   color: var(--accent-gold);
 }
 
-.hud-value.moves {
+.hud-value.moves,
+.hud-value.clears {
   color: var(--accent-cyan);
 }
 

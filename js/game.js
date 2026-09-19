@@ -59,7 +59,7 @@ class Rect10Game {
     this.timerEl = document.getElementById('hudTimer');
     this.timerBarFill = document.getElementById('timerBarFill');
     this.scoreEl = document.getElementById('hudScore');
-    this.movesEl = document.getElementById('hudMoves');
+    this.clearsEl = document.getElementById('hudClears');
     this.bestScoreEl = document.getElementById('hudBestScore');
     this.muteBtn = document.getElementById('muteBtn');
     this.pauseBtn = document.getElementById('pauseBtn');
@@ -288,7 +288,7 @@ class Rect10Game {
   }
 
   setTutorialSlide(slideIndex) {
-    this.currentTutorialSlide = Math.max(1, Math.min(4, slideIndex));
+    this.currentTutorialSlide = Math.max(1, Math.min(3, slideIndex));
     this.tutorialSlides.forEach((slide) => {
       const idx = parseInt(slide.getAttribute('data-slide'), 10);
       slide.classList.toggle('active', idx === this.currentTutorialSlide);
@@ -302,7 +302,7 @@ class Rect10Game {
       this.tutorialPrevBtn.style.display = 'none';
       this.tutorialNextBtn.style.display = 'block';
       this.tutorialDoneBtn.style.display = 'none';
-    } else if (this.currentTutorialSlide === 4) {
+    } else if (this.currentTutorialSlide === 3) {
       this.tutorialPrevBtn.style.display = 'block';
       this.tutorialNextBtn.style.display = 'none';
       this.tutorialDoneBtn.style.display = 'block';
@@ -768,7 +768,7 @@ class Rect10Game {
     }
 
     this.scoreEl.textContent = this.engine.score.toString();
-    this.movesEl.textContent = this.engine.movesRemaining.toString();
+    this.clearsEl.textContent = this.engine.clearsCount.toString();
 
     if (this.selectedMode === 'free') {
       this.bestScoreEl.textContent = '—';

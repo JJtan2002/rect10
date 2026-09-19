@@ -114,8 +114,8 @@
           <span id="hudScore" class="hud-value">0</span>
         </div>
         <div class="hud-card">
-          <span class="hud-label">Moves</span>
-          <span id="hudMoves" class="hud-value moves">0</span>
+          <span class="hud-label">Clears</span>
+          <span id="hudClears" class="hud-value clears">0</span>
         </div>
         <div class="hud-card">
           <span class="hud-label">Best</span>
@@ -146,7 +146,7 @@
     </footer>
   </div>
 
-  <!-- Interactive Tutorial Modal (4 Slides) -->
+  <!-- Interactive Tutorial Modal (3 Slides) -->
   <div id="tutorialModal" class="modal-overlay">
     <div class="modal-content tutorial-content">
       <div class="tutorial-header">
@@ -163,54 +163,38 @@
             <div class="t-cell active-demo">3</div>
             <div class="t-cell">5</div>
           </div>
-          <h3 class="tutorial-step-title">1. Sum to Exactly 10</h3>
+          <h3 class="tutorial-step-title">1. Draw &amp; Sum to 10</h3>
           <p class="tutorial-step-body">
-            Drag a rectangular box around numbers that add up to <strong>exactly 10</strong> (e.g. 7+3, 6+4, or 1+2+3+4). Active numbers in valid boxes clear and score <strong>+10 pts</strong> each!
+            Draw a rectangle around numbers that add up to <strong>exactly 10</strong>. Pairs like <strong>7+3</strong>, trios like <strong>5+3+2</strong>, or a block like <strong>1+2+3+4</strong>. Any rectangle works!
           </p>
         </div>
       </div>
 
-      <!-- Slide 2: Mental Addition -->
+      <!-- Slide 2: Mental Addition Flow -->
       <div class="tutorial-slide" data-slide="2">
         <div class="tutorial-card">
           <div class="tutorial-visual-grid">
             <div class="t-box neutral-box">
-              <span>No Hints</span>
+              <span>⚡ Fast Mental Math</span>
             </div>
           </div>
-          <h3 class="tutorial-step-title">2. Pure Mental Math</h3>
+          <h3 class="tutorial-step-title">2. Pure Mental Flow</h3>
           <p class="tutorial-step-body">
-            The selection outline is strictly <strong>neutral</strong>—no sum badges, hints, or green/red lights. Calculate in your head before releasing! Incorrect sums dismiss safely with zero penalty.
+            No live counters, no distracting hints—just pure arithmetic intuition and rhythm. Trust your calculation and swipe. Wrong sum? Zero penalty, just grab the next one!
           </p>
         </div>
       </div>
 
-      <!-- Slide 3: Tunneling -->
+      <!-- Slide 3: Modes & Sizes -->
       <div class="tutorial-slide" data-slide="3">
-        <div class="tutorial-card">
-          <div class="tutorial-visual-grid">
-            <div class="t-cell active-demo">4</div>
-            <div class="t-cell empty-demo">0</div>
-            <div class="t-cell empty-demo">0</div>
-            <div class="t-cell active-demo">6</div>
-          </div>
-          <h3 class="tutorial-step-title">3. Empty Space Tunneling</h3>
-          <p class="tutorial-step-body">
-            Cleared cells become empty <strong>0 tiles</strong>. They cost zero to your sum, letting you tunnel across cleared areas to connect distant numbers (e.g. 4 + [0] + 6 = 10)!
-          </p>
-        </div>
-      </div>
-
-      <!-- Slide 4: Modes & Sizes -->
-      <div class="tutorial-slide" data-slide="4">
         <div class="tutorial-card">
           <div class="mode-showcase">
             <div class="mode-pill-mini">⚡ 100s Challenge</div>
             <div class="mode-pill-mini zen">🧘 Free Zen Mode</div>
           </div>
-          <h3 class="tutorial-step-title">4. Modes & Board Sizes</h3>
+          <h3 class="tutorial-step-title">3. Play Your Way</h3>
           <p class="tutorial-step-body">
-            Race the clock in <strong>100s Challenge</strong> to earn rank titles and set daily records. Relax in <strong>Free Mode</strong> to practice untimed tactics. Choose between <strong>Small, Medium, and Large</strong> boards anytime!
+            Race the clock in <strong>100s Challenge</strong> to climb rank tiers and set daily records—or unwind in <strong>Free Mode</strong> with unlimited time. Choose Small, Medium, or Large boards anytime!
           </p>
         </div>
       </div>
@@ -220,7 +204,6 @@
         <span class="dot active" data-dot="1"></span>
         <span class="dot" data-dot="2"></span>
         <span class="dot" data-dot="3"></span>
-        <span class="dot" data-dot="4"></span>
       </div>
 
       <!-- Carousel Controls -->

@@ -172,7 +172,7 @@ async function runTest() {
     });
     if (!tutOpen.result.value) throw new Error("FAIL: Tutorial modal did not open!");
 
-    // Next slide
+    // Next slide -> 2
     await send('Runtime.evaluate', {
       expression: `document.getElementById('tutorialNextBtn').click()`,
       returnByValue: true
@@ -183,17 +183,30 @@ async function runTest() {
     });
     if (tutSlide.result.value !== 2) throw new Error("FAIL: Tutorial did not advance to slide 2!");
 
-    // Close tutorial
+    // Next slide -> 3 (Final slide)
     await send('Runtime.evaluate', {
-      expression: `document.getElementById('closeTutorialBtn').click()`,
+      expression: `document.getElementById('tutorialNextBtn').click()`,
+      returnByValue: true
+    });
+    const tutSlide3 = await send('Runtime.evaluate', {
+      expression: `({ slide: window.game.currentTutorialSlide, doneVisible: document.getElementById('tutorialDoneBtn').style.display !== 'none' })`,
+      returnByValue: true
+    });
+    if (tutSlide3.result.value.slide !== 3 || !tutSlide3.result.value.doneVisible) {
+      throw new Error("FAIL: Tutorial slide 3 did not show Done button!");
+    }
+
+    // Close tutorial via Done button
+    await send('Runtime.evaluate', {
+      expression: `document.getElementById('tutorialDoneBtn').click()`,
       returnByValue: true
     });
     const tutClosed = await send('Runtime.evaluate', {
       expression: `document.getElementById('tutorialModal').classList.contains('active')`,
       returnByValue: true
     });
-    if (tutClosed.result.value) throw new Error("FAIL: Tutorial modal failed to close!");
-    console.log("✅ Tutorial carousel opened, navigated, and closed cleanly");
+    if (tutClosed.result.value) throw new Error("FAIL: Tutorial modal failed to close on Done!");
+    console.log("✅ Tutorial carousel opened, navigated through all 3 slides, and closed via Done button cleanly");
 
     // 3. Launch Game into Active Board
     console.log("Launching game from landing screen...");
@@ -330,7 +343,14 @@ async function runTest() {
     if (postClearState.result.value.active !== false || postClearState.result.value.score <= 0) {
       throw new Error("FAIL: Valid move was not cleared / scored on release!");
     }
-    console.log("✅ Valid move cleared and scored successfully on release with zero cursor movement!");
+    const hudClearsValue = await send('Runtime.evaluate', {
+      expression: `document.getElementById('hudClears').textContent`,
+      returnByValue: true
+    });
+    if (hudClearsValue.result.value !== '1') {
+      throw new Error(`FAIL: hudClears did not increment to 1! Got: ${hudClearsValue.result.value}`);
+    }
+    console.log("✅ Valid move cleared and scored successfully (hudClears: 1) on release with zero cursor movement!");
 
     // 6. Test Leaderboard Modal with Size Filtering
     console.log("Testing Leaderboard UI modal with size tabs...");
